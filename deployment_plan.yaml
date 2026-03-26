@@ -1,0 +1,44 @@
+total_cost_usd: 0.0022850915966133654
+total_latency_sec: 31.471417489649884
+cost_weight: 0.5
+task_assignments:
+  tweet_ingest:
+    vmi_type: medium
+    vmi_label: Medium VMI
+    cpu: 1.55
+    mem_gb: 0.54
+    mode: stream
+    namespace: speed-layer
+    image: bitnami/kafka:3.4
+  stream_classify:
+    vmi_type: medium
+    vmi_label: Medium VMI
+    cpu: 1.12
+    mem_gb: 0.64
+    mode: stream
+    namespace: speed-layer
+    image: flink:1.17-scala_2.12
+  batch_retrain:
+    vmi_type: large
+    vmi_label: Large VMI
+    cpu: 1.27
+    mem_gb: 1.23
+    mode: batch
+    namespace: batch-layer
+    image: bitnami/spark:3.4
+  result_store:
+    vmi_type: small
+    vmi_label: small VMI
+    cpu: 1.0
+    mem_gb: 0.5
+    mode: serve
+    namespace: serve-layer
+    image: mongo:6.0
+  serving_api:
+    vmi_type: medium
+    vmi_label: Medium VMI
+    cpu: 1.36
+    mem_gb: 0.85
+    mode: serve
+    namespace: serve-layer
+    image: python:3.11-slim

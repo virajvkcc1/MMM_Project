@@ -1,0 +1,73 @@
+pipeline:
+  name: lambda-sentiment-analysis
+  description: Twitter sentiment analysis using Lambda Architecture
+
+vmi_catalogue:
+  small:
+    cpu: 1
+    label: "small VMI"
+    mem_gb: 0.5
+    cost_per_hr: 0.05
+  medium:
+    label: "Medium VMI"
+    cpu: 2
+    mem_gb: 1.0
+    cost_per_hr: 0.12
+  large:
+    label: "Large VMI"
+    cpu: 2
+    mem_gb: 1.5
+    cost_per_hr: 0.28
+
+tasks:
+  - id: tweet_ingest
+    name: Tweet Ingestion
+    mode: stream
+    vmi_options: [small, medium]
+    data_gb: 0.05
+    image: bitnami/kafka:3.4
+
+  - id: stream_classify
+    name: Stream Classification
+    mode: stream
+    vmi_options: [small, medium]
+    data_gb: 0.05
+    image: flink:1.17-scala_2.12
+
+  - id: batch_retrain
+    name: Model Retraining
+    mode: batch
+    vmi_options: [medium, large]
+    data_gb: 0.238
+    image: bitnami/spark:3.4
+
+  - id: result_store
+    name: Result Storage
+    mode: serve
+    vmi_options: [small]
+    data_gb: 0.10
+    image: mongo:6.0
+
+  - id: serving_api
+    name: Serving API
+    mode: serve
+    vmi_options: [small, medium]
+    data_gb: 0.05
+    image: python:3.11-slim
+
+dependencies:
+  - from: tweet_ingest
+    to: stream_classify
+  - from: tweet_ingest
+    to: batch_retrain
+  - from: stream_classify
+    to: result_store
+  - from: batch_retrain
+    to: result_store
+  - from: result_store
+    to: serving_api
+
+namespaces:
+  stream: speed-layer
+  batch: batch-layer
+  serve: serve-layer

@@ -1,0 +1,82 @@
+pipeline:
+  name: lambda-sentiment-analysis
+  description: >
+    Twitter sentiment analysis using Lambda Architecture.
+    Batch layer retrains the model daily.
+    Speed layer classifies tweets in real-time.
+    Serving layer exposes a query API.
+
+# ── VMI Catalogue ──────────────────────────────────────────────────────────────
+# Three predefined VMI types (thesis Section 1.4 delimitation)
+vmi_catalogue:
+  small:
+    cpu:          2
+    mem_gb:       4
+    cost_per_hr:  0.05
+    label:        small-cpu-optimized
+  medium:
+    cpu:          4
+    mem_gb:       8
+    cost_per_hr:  0.12
+    label:        medium-memory-optimized
+  large:
+    cpu:          8
+    mem_gb:       16
+    cost_per_hr:  0.28
+    label:        large-gpu-enabled
+
+# ── Pipeline Tasks ─────────────────────────────────────────────────────────────
+tasks:
+  - id: tweet_ingest
+    name: Tweet Data Ingestion
+    mode: stream                      # speed layer
+    vmi_options: [small, medium]
+    data_gb: 2.0
+    image: confluentinc/cp-kafka:7.4.0
+
+  - id: stream_classify
+    name: Real-time Sentiment Classification (Flink)
+    mode: stream                      # speed layer
+    vmi_options: [small, medium, large]
+    data_gb: 2.0
+    image: flink:1.17-scala_2.12
+
+  - id: batch_retrain
+    name: Model Retraining (Spark)
+    mode: batch                       # batch layer
+    vmi_options: [medium, large]      # batch needs more power
+    data_gb: 50.0
+    image: bitnami/spark:3.4
+
+  - id: result_store
+    name: Result Storage (MongoDB)
+    mode: serve                       # serving layer
+    vmi_options: [small, medium]
+    data_gb: 5.0
+    image: mongo:6.0
+
+  - id: serving_api
+    name: Sentiment Query API
+    mode: serve                       # serving layer
+    vmi_options: [small, medium]
+    data_gb: 0.5
+    image: python:3.11-slim
+
+# ── Dependencies (DAG edges) ───────────────────────────────────────────────────
+dependencies:
+  - from: tweet_ingest
+    to:   stream_classify
+  - from: tweet_ingest
+    to:   batch_retrain
+  - from: stream_classify
+    to:   result_store
+  - from: batch_retrain
+    to:   result_store
+  - from: result_store
+    to:   serving_api
+
+# ── Namespace mapping (simulates federated environments) ──────────────────────
+namespaces:
+  stream: speed-layer
+  batch:  batch-layer
+  serve:  serve-layer
