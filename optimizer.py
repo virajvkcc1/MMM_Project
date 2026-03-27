@@ -106,10 +106,6 @@ class PipelineOrchestrationProblem(Problem):
             vmi_ids  = [VMI_NAMES.index(v) for v in vmi_opts if v in VMI_NAMES]
             xl += [float(min(vmi_ids)), float(min_cpu), float(min_mem)]
             xu += [float(max(vmi_ids)), float(max_cpu), float(max_mem)]
-
-            # VMI bounds: min and max allowed index for this task
-           # xl += [float(min(vmi_ids)), 1.0, 1.0 ]
-           # xu += [float(max(vmi_ids)), 8.0, 16.0]
           
 
         super().__init__(
@@ -167,8 +163,8 @@ class PipelineOrchestrationProblem(Problem):
                 F[k, 1] = sum(task_lat.values())
 
         out['F'] = F
-        out['G'] = G
-       # out['G'] = np.zeros((len(X), 10))
+        #out['G'] = G
+        out['G'] = np.zeros((len(X), 10))
  
 # ── Orchestration Engine ───────────────────────────────────────────────────────
 
