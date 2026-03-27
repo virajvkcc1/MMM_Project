@@ -163,8 +163,8 @@ class PipelineOrchestrationProblem(Problem):
                 F[k, 1] = sum(task_lat.values())
 
         out['F'] = F
-        #out['G'] = G
-        out['G'] = np.zeros((len(X), 10))
+        out['G'] = G
+        #out['G'] = np.zeros((len(X), 10))
  
 # ── Orchestration Engine ───────────────────────────────────────────────────────
 
