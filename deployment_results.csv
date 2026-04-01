@@ -1,0 +1,6 @@
+timestamp,event,task_id,vmi_name,vmi_type,namespace,cpu,mem_gb,duration_sec,status,notes
+2026-04-01T11:56:35.092475,deploy,tweet_ingest,task-tweet_ingest,medium,speed-layer,1.15,0.59,0.0502,DRY_RUN,
+2026-04-01T11:56:35.142934,deploy,stream_classify,task-stream_classify,medium,speed-layer,1.12,0.52,0.0502,DRY_RUN,
+2026-04-01T11:56:35.193389,deploy,batch_retrain,task-batch_retrain,large,batch-layer,1.42,1.44,0.0502,DRY_RUN,
+2026-04-01T11:56:35.243871,deploy,result_store,task-result_store,small,serve-layer,1.0,0.5,0.0502,DRY_RUN,
+2026-04-01T11:56:35.294337,deploy,serving_api,task-serving_api,medium,serve-layer,1.13,0.99,0.0501,DRY_RUN,
