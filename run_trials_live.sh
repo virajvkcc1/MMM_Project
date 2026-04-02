@@ -19,10 +19,3 @@ for i in $(seq 1 30); do
     python3 main.py
 done
 
-echo ""
-echo "=== DONE ==="
-wc -l deployment_results.csv
-EOF
-
-chmod +x run_trials_live.sh
-./run_trials_live.sh
