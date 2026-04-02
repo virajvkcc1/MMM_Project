@@ -25,7 +25,8 @@ tasks:
   - small
   - medium
   data_gb: 0.05
-  image: bitnami/kafka:3.4
+  #image: bitnami/kafka:3.4
+  image: quay.io/kubevirt/cirros-container-disk-demo
 - id: stream_classify
   name: Stream Classification
   mode: stream
@@ -33,7 +34,8 @@ tasks:
   - small
   - medium
   data_gb: 0.05
-  image: flink:1.17-scala_2.12
+  #image: flink:1.17-scala_2.12
+  image: quay.io/kubevirt/cirros-container-disk-demo
 - id: batch_retrain
   name: Model Retraining
   mode: batch
@@ -41,14 +43,16 @@ tasks:
   - medium
   - large
   data_gb: 0.2224
-  image: bitnami/spark:3.4
+  #image: bitnami/spark:3.4
+  image: quay.io/kubevirt/cirros-container-disk-demo
 - id: result_store
   name: Result Storage
   mode: serve
   vmi_options:
   - small
   data_gb: 0.089
-  image: mongo:6.0
+  #image: mongo:6.0
+  image: quay.io/kubevirt/cirros-container-disk-demo
 - id: serving_api
   name: Serving API
   mode: serve
@@ -56,7 +60,8 @@ tasks:
   - small
   - medium
   data_gb: 0.05
-  image: python:3.11-slim
+  #image: python:3.11-slim
+  image: quay.io/kubevirt/cirros-container-disk-demo
 dependencies:
 - from: tweet_ingest
   to: stream_classify

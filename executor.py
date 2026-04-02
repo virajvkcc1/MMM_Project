@@ -130,12 +130,25 @@ class KubeVirtAdapter:
         Builds a KubeVirt VirtualMachineInstance manifest from a plan entry.
         Mirrors the structure of test-vmi.yaml with optimized resource values.
         """
-        vmi_name = f"task-{task_id}"
+        vmi_name = f"task-{task_id.replace('_', '-')}"
         profile  = VMI_RESOURCE_PROFILES.get(cfg['vmi_type'], VMI_RESOURCE_PROFILES['medium'])
 
         # Use optimizer-chosen values if within VMI profile, else cap to profile
-        cpu_req = f"{min(int(cfg['cpu']), int(profile['cpu']))}"
-        mem_req = f"{min(int(cfg['mem_gb']), int(profile['memory'].replace('Gi','')))}Gi"
+       # cpu_req = f"{min(int(cfg['cpu']), int(profile['cpu']))}"
+       # mem_req = f"{min(int(cfg['mem_gb']), int(profile['memory'].replace('Gi','')))}Gi"
+      # ✅ FIX — ensure minimum 1 CPU and 512Mi memory
+        cpu_cores = max(1, min(int(cfg['cpu']), int(profile['cpu'])))
+        cpu_req   = f"{cpu_cores}"
+
+        mem_gb_val    = float(cfg['mem_gb'])
+        profile_mem   = float(profile['memory'].replace('Gi',''))
+        mem_capped_gb = max(0.5, min(mem_gb_val, profile_mem))
+
+# Convert to Mi for sub-1GB values
+        if mem_capped_gb < 1.0:
+            mem_req = f"{int(mem_capped_gb * 1024)}Mi"
+        else:
+            mem_req = f"{int(mem_capped_gb)}Gi"
 
         return {
             "apiVersion": "kubevirt.io/v1",
@@ -149,6 +162,7 @@ class KubeVirtAdapter:
                     "middleware/mode"      : cfg['mode'],
                     "middleware/pipeline"  : "lambda-sentiment",
                 },
+
                 "annotations": {
                     "kubevirt.io/allow-pod-bridge-network-live-migration": "true",
                     "middleware/cost-weight": str(cfg.get('cost_weight', 0.5)),
