@@ -130,7 +130,7 @@ class KubeVirtAdapter:
         Builds a KubeVirt VirtualMachineInstance manifest from a plan entry.
         Mirrors the structure of test-vmi.yaml with optimized resource values.
         """
-        vmi_name = f"task-{task_id}"
+        vmi_name = f"task-{task_id.replace('_', '-')}"
         profile  = VMI_RESOURCE_PROFILES.get(cfg['vmi_type'], VMI_RESOURCE_PROFILES['medium'])
 
         # Use optimizer-chosen values if within VMI profile, else cap to profile
