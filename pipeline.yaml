@@ -24,14 +24,14 @@ tasks:
     name: Tweet Ingestion
     mode: stream
     vmi_options: [small, medium]
-    data_gb: 0.05
+    data_gb: 0.238
     image: bitnami/kafka:3.4
 
   - id: stream_classify
     name: Stream Classification
     mode: stream
     vmi_options: [small, medium]
-    data_gb: 0.05
+    data_gb: 0.238
     image: flink:1.17-scala_2.12
 
   - id: batch_retrain
@@ -45,7 +45,7 @@ tasks:
     name: Result Storage
     mode: serve
     vmi_options: [small]
-    data_gb: 0.10
+    data_gb: 0.05
     image: mongo:6.0
 
   - id: serving_api

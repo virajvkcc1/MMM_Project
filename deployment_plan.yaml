@@ -1,28 +1,28 @@
-total_cost_usd: 0.000638873568717297
-total_latency_sec: 9.089555079158057
+total_cost_usd: 0.0006900530835821072
+total_latency_sec: 9.758526980129254
 cost_weight: 0.5
 task_assignments:
   tweet_ingest:
     vmi_type: medium
     vmi_label: Medium VMI
-    cpu: 3.13
-    mem_gb: 7.42
+    cpu: 3.75
+    mem_gb: 6.49
     mode: stream
     namespace: speed-layer
     image: bitnami/kafka:3.4
   stream_classify:
     vmi_type: medium
     vmi_label: Medium VMI
-    cpu: 2.9
-    mem_gb: 7.45
+    cpu: 2.76
+    mem_gb: 5.56
     mode: stream
     namespace: speed-layer
     image: flink:1.17-scala_2.12
   batch_retrain:
     vmi_type: large
     vmi_label: Large VMI
-    cpu: 6.16
-    mem_gb: 7.63
+    cpu: 6.22
+    mem_gb: 9.44
     mode: batch
     namespace: batch-layer
     image: bitnami/spark:3.4
@@ -37,8 +37,8 @@ task_assignments:
   serving_api:
     vmi_type: medium
     vmi_label: Medium VMI
-    cpu: 3.08
-    mem_gb: 5.59
+    cpu: 3.42
+    mem_gb: 4.8
     mode: serve
     namespace: serve-layer
     image: python:3.11-slim
