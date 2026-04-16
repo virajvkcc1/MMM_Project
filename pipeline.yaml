@@ -4,19 +4,19 @@ pipeline:
 
 vmi_catalogue:
   small:
-    cpu: 1
+    cpu: 2
     label: "small VMI"
-    mem_gb: 0.5
+    mem_gb: 4
     cost_per_hr: 0.05
   medium:
     label: "Medium VMI"
-    cpu: 2
-    mem_gb: 1.0
+    cpu: 4
+    mem_gb: 8
     cost_per_hr: 0.12
   large:
     label: "Large VMI"
-    cpu: 2
-    mem_gb: 1.5
+    cpu: 8
+    mem_gb: 16
     cost_per_hr: 0.28
 
 tasks:

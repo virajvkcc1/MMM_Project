@@ -135,7 +135,7 @@ class KubeVirtAdapter:
 
         # Use optimizer-chosen values if within VMI profile, else cap to profile
         cpu_req = f"{min(int(cfg['cpu']), int(profile['cpu']))}"
-        mem_req = f"{min(int(cfg['mem_gb']), int(profile['memory'].replace('Gi','')))}Gi"
+        mem_req = f"{round(int(cfg['mem_gb']), int(profile['memory'].replace('Gi','')))}Gi"
 
         return {
             "apiVersion": "kubevirt.io/v1",

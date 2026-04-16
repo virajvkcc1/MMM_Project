@@ -104,6 +104,13 @@ class PipelineOrchestrationProblem(Problem):
             node     = dag.nodes[tid]
             vmi_opts = node['vmi_opts']
             vmi_ids  = [VMI_NAMES.index(v) for v in vmi_opts if v in VMI_NAMES]
+
+            allowed_spacs = [self.vmi_cat[v] for v in vmi_opts if v in self.vmi_cat]
+            task_min_cpu  = min(s['cpu'] for s in allowed_spacs)
+            task_max_cpu  = max(s['cpu'] for s in allowed_spacs)
+            task_min_mem  = min(s['mem_gb'] for s in allowed_spacs)
+            task_max_mem  = max(s['mem_gb'] for s in allowed_spacs)
+
             xl += [float(min(vmi_ids)), float(min_cpu), float(min_mem)]
             xu += [float(max(vmi_ids)), float(max_cpu), float(max_mem)]
           
