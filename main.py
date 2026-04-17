@@ -131,6 +131,7 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100):
     print("[EVAL] Running NSGA-III (single run, 3 plan variants)...")
     engine = OrchestrationOptimizationEngine(lpm, pop_size=100, n_gen=n_gen)
     engine.run()
+    engine.save_pareto_plot(save_path="pareto_front.png")
 
     strategies = [
         ("NSGA-III Balanced (0.5)",     engine.select_plan(cost_weight=0.5)),
