@@ -59,3 +59,8 @@ HTTP response headers: HTTPHeaderDict({'Audit-Id': '0c93696d-1f7d-48d7-bc9c-e0ba
 HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
 
 "
+2026-04-17T10:21:13.274002,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T10:21:13.324332,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0502,DRY_RUN,
+2026-04-17T10:21:13.374627,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T10:21:13.424906,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T10:21:13.475164,deploy,serving_api,task-serving-api,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,

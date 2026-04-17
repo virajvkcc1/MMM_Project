@@ -1,5 +1,5 @@
-total_cost_usd: 0.00039468722107622293
-total_latency_sec: 11.039573092431969
+total_cost_usd: 0.00039064441000664175
+total_latency_sec: 11.279504979055643
 cost_weight: 0.5
 task_assignments:
   tweet_ingest:
@@ -35,10 +35,10 @@ task_assignments:
     namespace: serve-layer
     image: mongo:6.0
   serving_api:
-    vmi_type: medium
-    vmi_label: Medium VMI
-    cpu: 4.0
-    mem_gb: 8.0
+    vmi_type: small
+    vmi_label: small VMI
+    cpu: 2.0
+    mem_gb: 4.0
     mode: serve
     namespace: serve-layer
     image: python:3.11-slim
