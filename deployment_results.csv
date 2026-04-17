@@ -21,3 +21,41 @@ HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},"
 2026-04-17T08:14:32.629345,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
 2026-04-17T08:14:32.679626,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
 2026-04-17T08:14:32.729915,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T08:21:07.342197,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0226,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': 'f48b0327-12f4-4363-bd92-18c37b14bd72', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Fri, 17 Apr 2026 08:21:07 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
+2026-04-17T09:47:08.897705,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0256,SUCCESS,
+2026-04-17T09:47:08.932586,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0347,SUCCESS,
+2026-04-17T09:47:08.981309,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0485,SUCCESS,
+2026-04-17T09:47:09.050597,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0691,SUCCESS,
+2026-04-17T09:47:09.116884,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0661,SUCCESS,
+2026-04-17T09:48:48.335594,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0271,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': '5b457720-cf1f-4ee5-94d7-ba5062b2079f', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Fri, 17 Apr 2026 09:48:48 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
+2026-04-17T09:49:35.141693,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0307,SUCCESS,
+2026-04-17T09:49:35.169442,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0276,SUCCESS,
+2026-04-17T09:49:35.210454,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0409,SUCCESS,
+2026-04-17T09:49:35.268129,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0575,SUCCESS,
+2026-04-17T09:49:35.336018,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0677,SUCCESS,
+2026-04-17T09:57:51.504907,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T09:57:51.555209,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T09:57:51.605505,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T09:57:51.655816,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T09:57:51.706147,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T10:02:52.125553,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T10:02:52.177909,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T10:02:52.228326,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T10:02:52.278621,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T10:02:52.328971,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T10:03:11.303703,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0217,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': '0c93696d-1f7d-48d7-bc9c-e0bab2f4595d', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Fri, 17 Apr 2026 10:03:11 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
