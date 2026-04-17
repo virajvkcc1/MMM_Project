@@ -105,15 +105,17 @@ class PipelineOrchestrationProblem(Problem):
             vmi_opts = node['vmi_opts']
             vmi_ids  = [VMI_NAMES.index(v) for v in vmi_opts if v in VMI_NAMES]
 
-            allowed_spacs = [self.vmi_cat[v] for v in vmi_opts if v in self.vmi_cat]
-            task_min_cpu  = min(s['cpu'] for s in allowed_spacs)
-            task_max_cpu  = max(s['cpu'] for s in allowed_spacs)
-            task_min_mem  = min(s['mem_gb'] for s in allowed_spacs)
-            task_max_mem  = max(s['mem_gb'] for s in allowed_spacs)
+           # allowed_spacs = [self.vmi_cat[v] for v in vmi_opts if v in self.vmi_cat]
+           # task_min_cpu  = min(s['cpu'] for s in allowed_spacs)
+           # task_max_cpu  = max(s['cpu'] for s in allowed_spacs)
+           # task_min_mem  = min(s['mem_gb'] for s in allowed_spacs)
+           # task_max_mem  = max(s['mem_gb'] for s in allowed_spacs)
 
-            xl += [float(min(vmi_ids)), float(min_cpu), float(min_mem)]
-            xu += [float(max(vmi_ids)), float(max_cpu), float(max_mem)]
+           # xl += [float(min(vmi_ids)), float(min_cpu), float(min_mem)]
+           # xu += [float(max(vmi_ids)), float(max_cpu), float(max_mem)]
           
+            xl += [float(min(vmi_ids)), 0.5, 0.5]
+            xu += [float(max(vmi_ids)), 1.0, 1.0]
 
         super().__init__(
             n_var        = n_var,
@@ -139,23 +141,40 @@ class PipelineOrchestrationProblem(Problem):
             task_lat  = {}
             task_cost = {}
 
-            for i, tid in enumerate(self.task_order):
-                vmi_idx  = int(np.round(np.clip(x[3*i], 0, len(VMI_NAMES)-1)))
-                vmi_name = VMI_NAMES[vmi_idx]
-                cpu      = float(x[3*i + 1])
-                mem      = float(x[3*i + 2])
+           # for i, tid in enumerate(self.task_order):
+            #    vmi_idx  = int(np.round(np.clip(x[3*i], 0, len(VMI_NAMES)-1)))
+             #   vmi_name = VMI_NAMES[vmi_idx]
+              #  cpu      = float(x[3*i + 1])
+               # mem      = float(x[3*i + 2])
 
-                node = self.dag.nodes[tid]
-                lat  = _task_latency(node['data_gb'], node['mode'], cpu, mem)
-                cst  = _task_cost(self.vmi_cat, vmi_name, lat)
+            #    node = self.dag.nodes[tid]
+             #   lat  = _task_latency(node['data_gb'], node['mode'], cpu, mem)
+              #  cst  = _task_cost(self.vmi_cat, vmi_name, lat)
 
-                task_lat[tid]  = lat
-                task_cost[tid] = cst
+               # task_lat[tid]  = lat
+               # task_cost[tid] = cst
 
                 # Constraints: cpu <= vmi_max_cpu,  mem <= vmi_max_mem
-                vmi_spec         = self.vmi_cat[vmi_name]
-                G[k, 2*i]     = cpu - vmi_spec['cpu']         # <= 0 if feasible
-                G[k, 2*i + 1] = mem - vmi_spec['mem_gb']      # <= 0 if feasible
+             #   vmi_spec         = self.vmi_cat[vmi_name]
+              #  G[k, 2*i]     = cpu - vmi_spec['cpu']         # <= 0 if feasible
+               # G[k, 2*i + 1] = mem - vmi_spec['mem_gb']      # <= 0 if feasible
+           for i, tid in enumerate(self.task_order):
+               vmi_idx  = int(np.round(np.clip(x[3*i], 0, len(VMI_NAMES)-1)))
+               vmi_name = VMI_NAMES[vmi_idx]
+               vmi_spec = self.vmi_cat[vmi_name]
+
+               cpu = float(x[3*i + 1]) * vmi_spec['cpu']
+               mem = float(x[3*i + 2]) * vmi_spec['mem_gb']
+
+               node = self.dag.nodes[tid]
+               lat  = _task_latency(node['data_gb'], node['mode'], cpu, mem)
+               cst  = _task_cost(self.vmi_cat, vmi_name, lat)
+
+               task_lat[tid]  = lat
+               task_cost[tid] = cst
+
+               G[k, 2*i]     = 0.0
+               G[k, 2*i + 1] = 0.0
 
             # ── f1: Total execution cost ───────────────────────────────────
             F[k, 0] = sum(task_cost.values())

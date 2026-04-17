@@ -135,7 +135,7 @@ class KubeVirtAdapter:
 
         # Use optimizer-chosen values if within VMI profile, else cap to profile
         cpu_req = f"{min(int(cfg['cpu']), int(profile['cpu']))}"
-        mem_req = f"{round(int(cfg['mem_gb']), int(profile['memory'].replace('Gi','')))}Gi"
+        mem_req = f"{min(round(cfg['mem_gb']), int(profile['memory'].replace('Gi','')))}Gi"
 
         return {
             "apiVersion": "kubevirt.io/v1",
@@ -321,6 +321,7 @@ class KubeVirtAdapter:
         Deletes all VMIs for a pipeline. Used for cleanup after evaluation runs.
         Always operates in reverse topological order (sinks first).
         """
+        vmi_name = f"task-{task_id.replace('_', '-')}"
         assignments = plan['task_assignments']
         print(f"\n  [EXEC] Cleaning up pipeline VMIs...")
         for task_id in reversed(task_order):

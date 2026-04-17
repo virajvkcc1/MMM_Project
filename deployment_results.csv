@@ -10,3 +10,9 @@ HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},"
 2026-04-16T13:01:49.037020,deploy,batch_retrain,task-batch-retrain,large,batch-layer,6.22,9.44,0.0501,DRY_RUN,
 2026-04-16T13:01:49.087421,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0502,DRY_RUN,
 2026-04-16T13:01:49.137758,deploy,serving_api,task-serving-api,medium,serve-layer,3.42,4.8,0.0502,DRY_RUN,
+2026-04-17T07:44:55.191982,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,3.64,5.01,0.0236,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': 'a59e1a2e-ceaf-461e-b214-fae517177fbe', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Fri, 17 Apr 2026 07:44:55 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
