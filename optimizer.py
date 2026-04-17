@@ -356,37 +356,40 @@ class OrchestrationOptimizationEngine:
         print(f"  {'─'*60}\n")
 
     def save_pareto_plot(self, save_path: str = "pareto_front.png"):
-        """Saves a Pareto front visualisation as PNG."""
-        if self.result is None:
-            return
+    """Saves a Pareto front visualisation as PNG."""
+    if self.result is None:
+        return
 
-        F = self.result.F
-        fig, ax = plt.subplots(figsize=(8, 5), facecolor='#080e14')
-        ax.set_facecolor('#0d1620')
+    F = self.result.F
+    fig, ax = plt.subplots(figsize=(8, 5), facecolor='white')
+    ax.set_facecolor('white')
 
-        sc = ax.scatter(F[:, 0], F[:, 1], c=F[:, 0],
-                        cmap='cool', s=60, alpha=0.85, zorder=3)
-        ax.plot(np.sort(F[:, 0]), F[np.argsort(F[:, 0]), 1],
-                color='#00c8ff', lw=1.2, alpha=0.4, zorder=2)
+    sc = ax.scatter(F[:, 0], F[:, 1], c=F[:, 0],
+                    cmap='cool', s=60, alpha=0.85, zorder=3)
+    ax.plot(np.sort(F[:, 0]), F[np.argsort(F[:, 0]), 1],
+            color='#185FA5', lw=1.2, alpha=0.5, zorder=2)
 
-        # Mark extreme points
-        ax.scatter(*F[np.argmin(F[:, 0])],
-                   color='#00ff9d', s=130, zorder=5, label='Min Cost')
-        ax.scatter(*F[np.argmin(F[:, 1])],
-                   color='#ff6b35', s=130, zorder=5, label='Min Latency')
+    # Mark extreme points
+    ax.scatter(*F[np.argmin(F[:, 0])],
+               color='#1D9E75', s=130, zorder=5, label='Min Cost')
+    ax.scatter(*F[np.argmin(F[:, 1])],
+               color='#D85A30', s=130, zorder=5, label='Min Latency')
 
-        ax.set_xlabel('Execution Cost (USD)', color='#8ecfe8')
-        ax.set_ylabel('End-to-End Latency (s)', color='#8ecfe8')
-        ax.set_title('Pareto Front — NSGA-III Orchestration',
-                     color='white', fontsize=11)
-        ax.tick_params(colors='#5a7a94')
-        for sp in ax.spines.values():
-            sp.set_color('#1e3248')
-        ax.legend(facecolor='#0d1620', labelcolor='white', fontsize=9)
-        ax.grid(True, color='#1e3248', alpha=0.5)
-        plt.colorbar(sc, ax=ax).ax.yaxis.label.set_color('#8ecfe8')
+    ax.set_xlabel('Execution Cost (USD)', color='#333333')
+    ax.set_ylabel('End-to-End Latency (s)', color='#333333')
+    ax.set_title('Pareto Front — NSGA-III Orchestration',
+                 color='#111111', fontsize=11)
+    ax.tick_params(colors='#333333')
+    for sp in ax.spines.values():
+        sp.set_color('#cccccc')
+    ax.legend(facecolor='white', edgecolor='#cccccc',
+              labelcolor='#333333', fontsize=9)
+    ax.grid(True, color='#eeeeee', alpha=0.8)
+    cb = plt.colorbar(sc, ax=ax)
+    cb.ax.yaxis.set_tick_params(color='#333333')
+    plt.setp(cb.ax.yaxis.get_ticklabels(), color='#333333')
 
-        plt.tight_layout()
-        plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='#080e14')
-        plt.close()
-        print(f"  [OPT] Pareto front saved → {save_path}")
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='white')
+    plt.close()
+    print(f"  [OPT] Pareto front saved → {save_path}")
