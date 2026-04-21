@@ -209,7 +209,7 @@ class OrchestrationOptimizationEngine:
         self.problem  = None
         self.result   = None
 
-    def run(self) -> dict:
+    def run(self, seed: int = 42) -> dict:
         """
         Runs NSGA-III optimisation.
         Returns a result dict with Pareto front and timing info.
@@ -244,7 +244,7 @@ class OrchestrationOptimizationEngine:
             self.problem,
             algorithm,
             termination,
-            seed    = 42,
+            seed    = seed,
             verbose = False,
         )
         overhead = round(time.time() - t0, 3)
@@ -358,38 +358,113 @@ class OrchestrationOptimizationEngine:
     def save_pareto_plot(self, save_path: str = "pareto_front.png"):
     
         if self.result is None:
-        return
+            return
+
+        plt.rcParams.update({'figure.facecolor': 'white', 'axes.facecolor': 'white'})
 
         F = self.result.F
-        fig, ax = plt.subplots(figsize=(8, 5), facecolor='white')
+        fig, ax = plt.subplots(figsize=(9, 5.5), facecolor='white')
         ax.set_facecolor('white')
 
+        sort_idx = np.argsort(F[:, 0])
+        ax.plot(F[sort_idx, 0], F[sort_idx, 1],
+                color='#2176AE', lw=1.8, alpha=0.6, zorder=2)
+
         sc = ax.scatter(F[:, 0], F[:, 1], c=F[:, 0],
-                    cmap='cool', s=60, alpha=0.85, zorder=3)
-        ax.plot(np.sort(F[:, 0]), F[np.argsort(F[:, 0]), 1],
-            color='#185FA5', lw=1.2, alpha=0.5, zorder=2)
+                        cmap='plasma', s=80, alpha=0.92,
+                        edgecolors='white', linewidths=0.5, zorder=3)
 
         # Mark extreme points
         ax.scatter(*F[np.argmin(F[:, 0])],
-               color='#1D9E75', s=130, zorder=5, label='Min Cost')
+                   color='#2DC653', s=200, zorder=6,
+                   edgecolors='#333333', linewidths=1.2, label='Min Cost')
         ax.scatter(*F[np.argmin(F[:, 1])],
-               color='#D85A30', s=130, zorder=5, label='Min Latency')
+                   color='#FF6B35', s=200, zorder=6,
+                   edgecolors='#333333', linewidths=1.2, label='Min Latency')
 
-        ax.set_xlabel('Execution Cost (USD)', color='#333333')
-        ax.set_ylabel('End-to-End Latency (s)', color='#333333')
+        ax.set_xlabel('Execution Cost (USD)', color='#222222', fontsize=11)
+        ax.set_ylabel('End-to-End Latency (s)', color='#222222', fontsize=11)
         ax.set_title('Pareto Front — NSGA-III Orchestration',
-                 color='#111111', fontsize=11)
-        ax.tick_params(colors='#333333')
+                     color='#111111', fontsize=13, fontweight='bold', pad=12)
+        ax.tick_params(colors='#222222', labelsize=9)
         for sp in ax.spines.values():
-        sp.set_color('#cccccc')
-        ax.legend(facecolor='white', edgecolor='#cccccc',
-              labelcolor='#333333', fontsize=9)
-        ax.grid(True, color='#eeeeee', alpha=0.8)
+            sp.set_color('#aaaaaa')
+        ax.legend(facecolor='white', edgecolor='#aaaaaa',
+                  labelcolor='#222222', fontsize=10, framealpha=1.0)
+        ax.grid(True, color='#dddddd', alpha=1.0, linewidth=0.7)
+        ax.set_axisbelow(True)
+
         cb = plt.colorbar(sc, ax=ax)
-        cb.ax.yaxis.set_tick_params(color='#333333')
-        plt.setp(cb.ax.yaxis.get_ticklabels(), color='#333333')
+        cb.set_label('Cost (USD)', color='#222222', fontsize=9)
+        cb.ax.yaxis.set_tick_params(color='#222222')
+        plt.setp(cb.ax.yaxis.get_ticklabels(), color='#222222')
 
         plt.tight_layout()
-        plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='white')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight',
+                    facecolor='white', edgecolor='none')
         plt.close()
         print(f"  [OPT] Pareto front saved → {save_path}")
+
+
+# ── Weighted-Sum Baseline (B2) ─────────────────────────────────────────────────
+
+class _WeightedSumProblem(Problem):
+    """Scalarises PipelineOrchestrationProblem into a single weighted objective."""
+
+    def __init__(self, inner: PipelineOrchestrationProblem, cost_weight: float):
+        self.inner = inner
+        self.w     = cost_weight
+        super().__init__(
+            n_var        = inner.n_var,
+            n_obj        = 1,
+            n_ieq_constr = 0,
+            xl           = inner.xl,
+            xu           = inner.xu,
+        )
+
+    def _evaluate(self, X, out, *args, **kwargs):
+        inner_out = {}
+        self.inner._evaluate(X, inner_out)
+        F      = inner_out['F']
+        c_rng  = max(F[:, 0].max() - F[:, 0].min(), 1e-9)
+        l_rng  = max(F[:, 1].max() - F[:, 1].min(), 1e-9)
+        c_norm = (F[:, 0] - F[:, 0].min()) / c_rng
+        l_norm = (F[:, 1] - F[:, 1].min()) / l_rng
+        out['F'] = (self.w * c_norm + (1.0 - self.w) * l_norm).reshape(-1, 1)
+
+
+class WeightedSumBaseline:
+    """
+    Baseline B2: single-objective weighted-sum GA (thesis Section 3.7.2).
+    Scalarises cost and latency into one objective and optimises with pymoo GA.
+    Provides a fair single-objective comparator for NSGA-III.
+    """
+
+    def __init__(self, lpm, cost_weight: float = 0.5,
+                 pop_size: int = 100, n_gen: int = 100):
+        self.lpm         = lpm
+        self.cost_weight = cost_weight
+        self.pop_size    = pop_size
+        self.n_gen       = n_gen
+
+    def run(self, seed: int = 42) -> dict:
+        from pymoo.algorithms.soo.nonconvex.ga import GA  # type: ignore
+
+        inner = PipelineOrchestrationProblem(
+            dag           = self.lpm.dag,
+            vmi_catalogue = self.lpm.vmi_catalogue,
+            task_order    = self.lpm.get_task_order(),
+            all_paths     = self.lpm.get_all_paths(),
+        )
+        problem     = _WeightedSumProblem(inner, self.cost_weight)
+        algorithm   = GA(pop_size=self.pop_size)
+        termination = get_termination("n_gen", self.n_gen)
+
+        result = minimize(problem, algorithm, termination,
+                          seed=seed, verbose=False)
+
+        # Re-evaluate best solution through inner problem to recover true cost/latency
+        best_out = {}
+        inner._evaluate(result.X.reshape(1, -1), best_out)
+        best_f = best_out['F'][0]
+        return {'cost': float(best_f[0]), 'latency': float(best_f[1])}

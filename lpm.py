@@ -101,6 +101,11 @@ class LogicalPipelineManager:
                 paths.extend(nx.all_simple_paths(self.dag, s, t))
         return paths
 
+    def scale_workload(self, factor: float):
+        """Scales data_gb for every task by factor. Used for Low/Medium/High workload experiments."""
+        for tid in self.dag.nodes:
+            self.dag.nodes[tid]['data_gb'] *= factor
+
     def get_node(self, task_id: str) -> dict:
         """Returns node attribute dict for a given task_id."""
         return self.dag.nodes[task_id]

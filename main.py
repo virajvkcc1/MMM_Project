@@ -106,89 +106,112 @@ def run_middleware(dry_run: bool = True,
     }
 
 
-def run_evaluation(dry_run: bool = True, n_gen: int = 100):
-    """
-    Runs the full comparative evaluation (thesis Section 3.7.2):
-      - NSGA-III Balanced
-      - NSGA-III Cost-Optimised
-      - NSGA-III Latency-Optimised
-      - Baseline: Static cheap (always small VMI)
-      - Baseline: Static large (always large VMI)
+WORKLOAD_LEVELS = [('Low', 0.5), ('Medium', 1.0), ('High', 2.0)]
 
-    Prints a comparison table suitable for the Results chapter.
+
+def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
+    """
+    Full statistical evaluation (thesis Section 3.7.2 and 3.7.3):
+      - 30 independent NSGA-III runs per workload level (seeds 0–29)
+      - B2 Weighted-Sum GA: 30 runs per workload level
+      - B1 All-Small, B3 All-Large: deterministic static baselines
+      - Workload levels: Low (0.5×), Medium (1.0×), High (2.0×) data_gb scaling
+
+    Prints mean ± std tables per workload and saves all raw runs to CSV.
     """
     import numpy as np
+    import csv
+    from optimizer import WeightedSumBaseline, _task_latency, _task_cost
 
-    print("\n" + "═"*60)
-    print("  EVALUATION MODE — Baseline Comparison")
-    print("═"*60)
+    print("\n" + "═"*68)
+    print(f"  EVALUATION — {n_runs} runs × {len(WORKLOAD_LEVELS)} workload levels")
+    print("═"*68)
 
-    # Run optimiser once, then select three different plans
-    print("\n[EVAL] Building DAG...")
-    lpm = LogicalPipelineManager(PIPELINE_YAML)
-    lpm.build_dag()
+    csv_rows = []
 
-    print("[EVAL] Running NSGA-III (single run, 3 plan variants)...")
-    engine = OrchestrationOptimizationEngine(lpm, pop_size=100, n_gen=n_gen)
-    engine.run()
-    engine.save_pareto_plot(save_path="pareto_front.png")
+    for wl_name, wl_scale in WORKLOAD_LEVELS:
+        print(f"\n  ── Workload: {wl_name} (data_gb × {wl_scale}) {'─'*30}")
 
-    strategies = [
-        ("NSGA-III Balanced (0.5)",     engine.select_plan(cost_weight=0.5)),
-        ("NSGA-III Cost-opt (0.9)",     engine.select_plan(cost_weight=0.9)),
-        ("NSGA-III Latency-opt (0.1)",  engine.select_plan(cost_weight=0.1)),
-    ]
+        lpm = LogicalPipelineManager(PIPELINE_YAML)
+        lpm.build_dag()
+        lpm.scale_workload(wl_scale)
 
-    # Baseline: all-small and all-large (static heuristics)
-    from optimizer import _task_latency, _task_cost, VMI_NAMES
-    for strat_name, vmi_name in [("Baseline B1: All-Small", "small"),
-                                  ("Baseline B3: All-Large", "large")]:
-        vmi_spec   = lpm.vmi_catalogue[vmi_name]
-        total_cost = 0.0
-        task_lats  = {}
-        for tid in lpm.get_task_order():
-            node = lpm.dag.nodes[tid]
-            lat  = _task_latency(node['data_gb'], node['mode'],
-                                 vmi_spec['cpu'], vmi_spec['mem_gb'])
-            cst  = _task_cost(lpm.vmi_catalogue, vmi_name, lat)
-            task_lats[tid] = lat
-            total_cost    += cst
-        paths    = lpm.get_all_paths()
-        makespan = max(sum(task_lats[t] for t in p) for p in paths)
-        fake_plan = {
-            'total_cost_usd'   : total_cost,
-            'total_latency_sec': makespan,
-            'task_assignments' : {
-                tid: {'vmi_type': vmi_name, 'vmi_label': vmi_spec['label'],
-                      'cpu': vmi_spec['cpu'], 'mem_gb': vmi_spec['mem_gb'],
-                      'mode': lpm.dag.nodes[tid]['mode'],
-                      'namespace': lpm.dag.nodes[tid]['namespace'],
-                      'image': lpm.dag.nodes[tid]['image']}
-                for tid in lpm.get_task_order()
-            }
-        }
-        strategies.append((strat_name, fake_plan))
+        # ── NSGA-III: n_runs independent seeds ────────────────────────
+        print(f"  [EVAL] NSGA-III × {n_runs} runs...")
+        nsga_costs, nsga_lats, nsga_hvs = [], [], []
+        for seed in range(n_runs):
+            engine = OrchestrationOptimizationEngine(lpm, pop_size=100, n_gen=n_gen)
+            r = engine.run(seed=seed)
+            p = engine.select_plan(cost_weight=0.5)
+            nsga_costs.append(p['total_cost_usd'])
+            nsga_lats.append(p['total_latency_sec'])
+            if r['hypervolume'] is not None:
+                nsga_hvs.append(r['hypervolume'])
+            csv_rows.append([wl_name, 'NSGA-III', seed,
+                             p['total_cost_usd'], p['total_latency_sec'],
+                             r['hypervolume'] or ''])
+            if seed == 0:
+                engine.save_pareto_plot(save_path=f"pareto_{wl_name.lower()}.png")
 
-    # Print comparison table
-    print(f"\n  {'Strategy':<30} {'Cost (USD)':>12} {'Latency (s)':>13}")
-    print(f"  {'─'*30} {'─'*12} {'─'*13}")
-    nsga_cost = strategies[0][1]['total_cost_usd']
-    nsga_lat  = strategies[0][1]['total_latency_sec']
-    for name, plan in strategies:
-        cost = plan['total_cost_usd']
-        lat  = plan['total_latency_sec']
-        tag  = ""
-        if 'NSGA' in name:
-            cost_imp = (1 - cost/nsga_cost) * 100 if 'Balanced' not in name else 0
-            tag = f"  ← proposed" if 'Balanced' in name else ""
-        print(f"  {name:<30} ${cost:>10.5f}  {lat:>11.1f}s {tag}")
+        # ── B2 Weighted-Sum GA: n_runs independent seeds ──────────────
+        print(f"  [EVAL] B2 Weighted-Sum GA × {n_runs} runs...")
+        b2_costs, b2_lats = [], []
+        for seed in range(n_runs):
+            b2 = WeightedSumBaseline(lpm, cost_weight=0.5, pop_size=100, n_gen=n_gen)
+            r2 = b2.run(seed=seed)
+            b2_costs.append(r2['cost'])
+            b2_lats.append(r2['latency'])
+            csv_rows.append([wl_name, 'B2-WeightedSumGA', seed,
+                             r2['cost'], r2['latency'], ''])
 
-    print(f"\n  [EVAL] All results appended to deployment_results.csv")
+        # ── B1 All-Small, B3 All-Large (deterministic) ────────────────
+        static_results = {}
+        for bl_label, vmi_name in [('B1-AllSmall', 'small'), ('B3-AllLarge', 'large')]:
+            vmi_spec   = lpm.vmi_catalogue[vmi_name]
+            total_cost = 0.0
+            task_lats  = {}
+            for tid in lpm.get_task_order():
+                node = lpm.dag.nodes[tid]
+                lat  = _task_latency(node['data_gb'], node['mode'],
+                                     vmi_spec['cpu'], vmi_spec['mem_gb'])
+                task_lats[tid] = lat
+                total_cost    += _task_cost(lpm.vmi_catalogue, vmi_name, lat)
+            paths    = lpm.get_all_paths()
+            makespan = max(sum(task_lats[t] for t in p) for p in paths)
+            static_results[bl_label] = {'cost': total_cost, 'latency': makespan}
+            csv_rows.append([wl_name, bl_label, 0, total_cost, makespan, ''])
 
-    # Optionally deploy the balanced plan
-    print(f"\n[EVAL] Deploying balanced plan ({('DRY-RUN' if dry_run else 'LIVE')})...")
-    adapter = KubeVirtAdapter(dry_run=dry_run)
-    adapter.deploy_pipeline(strategies[0][1], lpm.get_task_order())
+        # ── Print statistics table ─────────────────────────────────────
+        print(f"\n  {'Strategy':<22} {'Cost mean±std (USD)':>24} {'Latency mean±std (s)':>22}")
+        print(f"  {'─'*22} {'─'*24} {'─'*22}")
+        print(f"  {'NSGA-III Balanced':<22}"
+              f"  ${np.mean(nsga_costs):.5f} ± {np.std(nsga_costs):.5f}"
+              f"  {np.mean(nsga_lats):.1f} ± {np.std(nsga_lats):.1f}s")
+        if nsga_hvs:
+            print(f"    HV: {np.mean(nsga_hvs):.6f} ± {np.std(nsga_hvs):.6f}")
+        print(f"  {'B2 Weighted-Sum GA':<22}"
+              f"  ${np.mean(b2_costs):.5f} ± {np.std(b2_costs):.5f}"
+              f"  {np.mean(b2_lats):.1f} ± {np.std(b2_lats):.1f}s")
+        for bl_label, v in static_results.items():
+            print(f"  {bl_label:<22}  ${v['cost']:>10.5f} (det.)   {v['latency']:>9.1f}s (det.)")
+
+    # ── Save all raw runs to CSV ───────────────────────────────────────
+    csv_path = "evaluation_results.csv"
+    with open(csv_path, 'w', newline='') as f:
+        w = csv.writer(f)
+        w.writerow(['workload', 'strategy', 'run', 'cost_usd', 'latency_sec', 'hypervolume'])
+        w.writerows(csv_rows)
+    print(f"\n  [EVAL] Raw results saved → {csv_path}")
+
+    # ── Deploy balanced Medium plan ────────────────────────────────────
+    print(f"\n[EVAL] Deploying Medium balanced plan ({('DRY-RUN' if dry_run else 'LIVE')})...")
+    lpm_med = LogicalPipelineManager(PIPELINE_YAML)
+    lpm_med.build_dag()
+    lpm_med.scale_workload(1.0)
+    engine_med = OrchestrationOptimizationEngine(lpm_med, pop_size=100, n_gen=n_gen)
+    engine_med.run(seed=0)
+    plan_med = engine_med.select_plan(cost_weight=0.5)
+    KubeVirtAdapter(dry_run=dry_run).deploy_pipeline(plan_med, lpm_med.get_task_order())
 
 
 # ── CLI entry point ────────────────────────────────────────────────────────────
