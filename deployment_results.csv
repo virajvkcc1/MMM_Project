@@ -64,3 +64,8 @@ HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},"
 2026-04-17T10:21:13.374627,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
 2026-04-17T10:21:13.424906,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
 2026-04-17T10:21:13.475164,deploy,serving_api,task-serving-api,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-21T22:35:43.724127,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0331,SUCCESS,
+2026-04-21T22:35:43.743181,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0184,SUCCESS,
+2026-04-21T22:35:43.778316,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.035,SUCCESS,
+2026-04-21T22:35:43.835140,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0567,SUCCESS,
+2026-04-21T22:35:43.941866,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.1066,SUCCESS,
