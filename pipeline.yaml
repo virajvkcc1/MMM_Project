@@ -20,49 +20,82 @@ vmi_catalogue:
     cost_per_hr: 0.28
 
 tasks:
+  # ── Speed Layer (Stream) ────────────────────────────────────────────
   - id: tweet_ingest
     name: Tweet Ingestion
     mode: stream
     vmi_options: [small, medium]
-    data_gb: 0.238
+    data_gb: 2.5
     image: bitnami/kafka:3.4
+
+  - id: stream_preprocess
+    name: Stream Preprocessing
+    mode: stream
+    vmi_options: [small, medium]
+    data_gb: 2.5
+    image: flink:1.17-scala_2.12
 
   - id: stream_classify
     name: Stream Classification
     mode: stream
-    vmi_options: [small, medium]
-    data_gb: 0.238
+    vmi_options: [small, medium, large]
+    data_gb: 2.5
     image: flink:1.17-scala_2.12
+
+  # ── Batch Layer ─────────────────────────────────────────────────────
+  - id: batch_preprocess
+    name: Batch Preprocessing
+    mode: batch
+    vmi_options: [small, medium]
+    data_gb: 12.0
+    image: bitnami/spark:3.4
 
   - id: batch_retrain
     name: Model Retraining
     mode: batch
     vmi_options: [medium, large]
-    data_gb: 0.238
+    data_gb: 12.0
     image: bitnami/spark:3.4
 
+  - id: model_validate
+    name: Model Validation
+    mode: batch
+    vmi_options: [small, medium]
+    data_gb: 3.0
+    image: bitnami/spark:3.4
+
+  # ── Serving Layer ───────────────────────────────────────────────────
   - id: result_store
     name: Result Storage
     mode: serve
-    vmi_options: [small]
-    data_gb: 0.05
+    vmi_options: [small, medium]
+    data_gb: 1.5
     image: mongo:6.0
 
   - id: serving_api
     name: Serving API
     mode: serve
-    vmi_options: [small, medium]
-    data_gb: 0.05
+    vmi_options: [small, medium, large]
+    data_gb: 0.8
     image: python:3.11-slim
 
 dependencies:
+  # Stream path
   - from: tweet_ingest
+    to: stream_preprocess
+  - from: stream_preprocess
     to: stream_classify
+  # Batch path
   - from: tweet_ingest
+    to: batch_preprocess
+  - from: batch_preprocess
     to: batch_retrain
+  - from: batch_retrain
+    to: model_validate
+  # Merge into serving layer
   - from: stream_classify
     to: result_store
-  - from: batch_retrain
+  - from: model_validate
     to: result_store
   - from: result_store
     to: serving_api
