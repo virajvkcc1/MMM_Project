@@ -143,6 +143,7 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
         print(f"  [EVAL] NSGA-III × {n_runs} runs...")
         nsga_costs, nsga_lats, nsga_overheads, nsga_npareto = [], [], [], []
         nsga_pareto_Fs = []
+        best_engine, best_npareto_val = None, -1   # track run with richest Pareto front
         for seed in range(n_runs):
             engine = OrchestrationOptimizationEngine(lpm, pop_size=100, n_gen=n_gen)
             r = engine.run(seed=seed)
@@ -152,8 +153,9 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
             nsga_overheads.append(r['overhead_sec'])
             nsga_npareto.append(r['n_pareto'])
             nsga_pareto_Fs.append(r['pareto_solutions'])
-            if seed == 0:
-                engine.save_pareto_plot(save_path=f"pareto_{wl_name.lower()}.png")
+            if r['n_pareto'] > best_npareto_val:
+                best_npareto_val = r['n_pareto']
+                best_engine = engine
 
         # ── B2 Weighted-Sum GA: n_runs independent seeds ──────────────
         print(f"  [EVAL] B2 Weighted-Sum GA × {n_runs} runs...")
@@ -179,6 +181,21 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
             paths    = lpm.get_all_paths()
             makespan = max(sum(task_lats[t] for t in p) for p in paths)
             static[bl_label] = {'cost': total_cost, 'latency': makespan}
+
+        # ── Plot best Pareto front with baselines overlaid ────────────
+        b2_mean_cost = sum(b2_costs) / len(b2_costs)
+        b2_mean_lat  = sum(b2_lats)  / len(b2_lats)
+        best_engine.save_pareto_plot(
+            save_path      = f"pareto_{wl_name.lower()}.png",
+            workload_label = wl_name,
+            baselines      = {
+                'B1 All-Small': (static['B1-AllSmall']['cost'],
+                                 static['B1-AllSmall']['latency']),
+                'B2 W-Sum GA':  (b2_mean_cost, b2_mean_lat),
+                'B3 All-Large': (static['B3-AllLarge']['cost'],
+                                 static['B3-AllLarge']['latency']),
+            },
+        )
 
         # ── Shared reference point for fair HV comparison ─────────────
         # Reference must dominate the worst point across ALL strategies
@@ -212,9 +229,11 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
               f"  {np.mean(b2_hvs):.4f}±{np.std(b2_hvs):.4f}")
         for bl, v in static.items():
             print(f"  {bl:<22}  ${v['cost']:.4f} (det.)    {v['latency']:.1f}s (det.)    — ")
-        print(f"\n  Wilcoxon HV (NSGA-III > B2): W={w_stat:.1f}, p={p_val:.4e} {sig_label}")
-        print(f"  NSGA-III mean Pareto size  : {np.mean(nsga_npareto):.1f} solutions")
-        print(f"  NSGA-III mean overhead     : {np.mean(nsga_overheads):.2f}s")
+        print(f"\n  HV reference point         : cost={ref_point[0]:.5f}, lat={ref_point[1]:.2f}s")
+        print(f"  Wilcoxon HV (NSGA-III > B2): W={w_stat:.1f}, p={p_val:.6e} {sig_label}")
+        print(f"  NSGA-III mean Pareto size  : {np.mean(nsga_npareto):.1f} ± {np.std(nsga_npareto):.1f} solutions")
+        print(f"  NSGA-III best Pareto size  : {best_npareto_val} solutions (used for plot)")
+        print(f"  NSGA-III mean overhead     : {np.mean(nsga_overheads):.3f} ± {np.std(nsga_overheads):.3f}s")
 
         all_data[wl_name] = {
             'nsga'   : {'costs': nsga_costs, 'lats': nsga_lats,

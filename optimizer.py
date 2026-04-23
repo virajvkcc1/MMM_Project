@@ -355,8 +355,14 @@ class OrchestrationOptimizationEngine:
                   f"{cfg['mem_gb']:>6}G  {cfg['namespace']}")
         print(f"  {'─'*60}\n")
 
-    def save_pareto_plot(self, save_path: str = "pareto_front.png"):
-    
+    def save_pareto_plot(self, save_path: str = "pareto_front.png",
+                         baselines: dict = None, workload_label: str = ""):
+        """
+        Args:
+            baselines      : optional dict {'B1 All-Small': (cost, lat), ...}
+                             overlaid as reference points on the Pareto plot.
+            workload_label : appended to the plot title (e.g. 'Medium').
+        """
         if self.result is None:
             return
 
@@ -372,25 +378,41 @@ class OrchestrationOptimizationEngine:
 
         sc = ax.scatter(F[:, 0], F[:, 1], c=F[:, 0],
                         cmap='plasma', s=80, alpha=0.92,
-                        edgecolors='white', linewidths=0.5, zorder=3)
+                        edgecolors='white', linewidths=0.5, zorder=3,
+                        label='NSGA-III solutions')
 
-        # Mark extreme points
+        # Mark NSGA-III extreme points
         ax.scatter(*F[np.argmin(F[:, 0])],
                    color='#2DC653', s=200, zorder=6,
-                   edgecolors='#333333', linewidths=1.2, label='Min Cost')
+                   edgecolors='#333333', linewidths=1.2, label='NSGA-III min-cost')
         ax.scatter(*F[np.argmin(F[:, 1])],
                    color='#FF6B35', s=200, zorder=6,
-                   edgecolors='#333333', linewidths=1.2, label='Min Latency')
+                   edgecolors='#333333', linewidths=1.2, label='NSGA-III min-latency')
 
+        # ── Overlay baseline reference points ──────────────────────────
+        if baselines:
+            _styles = {
+                'B1 All-Small': ('^', '#E74C3C', 220),
+                'B2 W-Sum GA':  ('s', '#8E44AD', 180),
+                'B3 All-Large': ('v', '#F39C12', 220),
+            }
+            for label, (cost, lat) in baselines.items():
+                mk, col, sz = _styles.get(label, ('D', '#555555', 160))
+                ax.scatter(cost, lat, marker=mk, color=col, s=sz, zorder=7,
+                           edgecolors='#222222', linewidths=1.2, label=label)
+
+        title = 'Pareto Front — NSGA-III Orchestration'
+        if workload_label:
+            title += f'  [{workload_label} Workload]'
         ax.set_xlabel('Execution Cost (USD)', color='#222222', fontsize=11)
         ax.set_ylabel('End-to-End Latency (s)', color='#222222', fontsize=11)
-        ax.set_title('Pareto Front — NSGA-III Orchestration',
-                     color='#111111', fontsize=13, fontweight='bold', pad=12)
+        ax.set_title(title, color='#111111', fontsize=12, fontweight='bold', pad=12)
         ax.tick_params(colors='#222222', labelsize=9)
         for sp in ax.spines.values():
             sp.set_color('#aaaaaa')
         ax.legend(facecolor='white', edgecolor='#aaaaaa',
-                  labelcolor='#222222', fontsize=10, framealpha=1.0)
+                  labelcolor='#222222', fontsize=9, framealpha=1.0,
+                  loc='upper right')
         ax.grid(True, color='#dddddd', alpha=1.0, linewidth=0.7)
         ax.set_axisbelow(True)
 
