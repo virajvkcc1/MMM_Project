@@ -111,23 +111,26 @@ WORKLOAD_LEVELS = [('Low', 0.5), ('Medium', 1.0), ('High', 2.0)]
 
 def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
     """
-    Full statistical evaluation (thesis Section 3.7.2 and 3.7.3):
+    Full statistical evaluation (thesis Sections 3.7.2 and 3.7.3):
       - 30 independent NSGA-III runs per workload level (seeds 0–29)
       - B2 Weighted-Sum GA: 30 runs per workload level
       - B1 All-Small, B3 All-Large: deterministic static baselines
       - Workload levels: Low (0.5×), Medium (1.0×), High (2.0×) data_gb scaling
-
-    Prints mean ± std tables per workload and saves all raw runs to CSV.
+      - Shared-reference Hypervolume indicator for fair NSGA-III vs B2 comparison
+      - Wilcoxon signed-rank test on HV distributions (α = 0.05)
     """
     import numpy as np
     import csv
+    from scipy.stats import wilcoxon
+    from pymoo.indicators.hv import HV
     from optimizer import WeightedSumBaseline, _task_latency, _task_cost
 
     print("\n" + "═"*68)
     print(f"  EVALUATION — {n_runs} runs × {len(WORKLOAD_LEVELS)} workload levels")
     print("═"*68)
 
-    csv_rows = []
+    csv_rows  = []
+    all_data  = {}   # keyed by wl_name — used later by _plot_chapter5()
 
     for wl_name, wl_scale in WORKLOAD_LEVELS:
         print(f"\n  ── Workload: {wl_name} (data_gb × {wl_scale}) {'─'*30}")
@@ -138,18 +141,17 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
 
         # ── NSGA-III: n_runs independent seeds ────────────────────────
         print(f"  [EVAL] NSGA-III × {n_runs} runs...")
-        nsga_costs, nsga_lats, nsga_hvs = [], [], []
+        nsga_costs, nsga_lats, nsga_overheads, nsga_npareto = [], [], [], []
+        nsga_pareto_Fs = []
         for seed in range(n_runs):
             engine = OrchestrationOptimizationEngine(lpm, pop_size=100, n_gen=n_gen)
             r = engine.run(seed=seed)
             p = engine.select_plan(cost_weight=0.5)
             nsga_costs.append(p['total_cost_usd'])
             nsga_lats.append(p['total_latency_sec'])
-            if r['hypervolume'] is not None:
-                nsga_hvs.append(r['hypervolume'])
-            csv_rows.append([wl_name, 'NSGA-III', seed,
-                             p['total_cost_usd'], p['total_latency_sec'],
-                             r['hypervolume'] or ''])
+            nsga_overheads.append(r['overhead_sec'])
+            nsga_npareto.append(r['n_pareto'])
+            nsga_pareto_Fs.append(r['pareto_solutions'])
             if seed == 0:
                 engine.save_pareto_plot(save_path=f"pareto_{wl_name.lower()}.png")
 
@@ -161,11 +163,9 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
             r2 = b2.run(seed=seed)
             b2_costs.append(r2['cost'])
             b2_lats.append(r2['latency'])
-            csv_rows.append([wl_name, 'B2-WeightedSumGA', seed,
-                             r2['cost'], r2['latency'], ''])
 
         # ── B1 All-Small, B3 All-Large (deterministic) ────────────────
-        static_results = {}
+        static = {}
         for bl_label, vmi_name in [('B1-AllSmall', 'small'), ('B3-AllLarge', 'large')]:
             vmi_spec   = lpm.vmi_catalogue[vmi_name]
             total_cost = 0.0
@@ -178,30 +178,80 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
                 total_cost    += _task_cost(lpm.vmi_catalogue, vmi_name, lat)
             paths    = lpm.get_all_paths()
             makespan = max(sum(task_lats[t] for t in p) for p in paths)
-            static_results[bl_label] = {'cost': total_cost, 'latency': makespan}
-            csv_rows.append([wl_name, bl_label, 0, total_cost, makespan, ''])
+            static[bl_label] = {'cost': total_cost, 'latency': makespan}
+
+        # ── Shared reference point for fair HV comparison ─────────────
+        # Reference must dominate the worst point across ALL strategies
+        ref_cost = max(static['B3-AllLarge']['cost'],
+                       max(nsga_costs), max(b2_costs)) * 1.1
+        ref_lat  = max(static['B1-AllSmall']['latency'],
+                       max(nsga_lats), max(b2_lats)) * 1.1
+        ref_point = np.array([ref_cost, ref_lat])
+        hv_calc   = HV(ref_point=ref_point)
+
+        nsga_hvs = [hv_calc(F) for F in nsga_pareto_Fs]
+        b2_hvs   = [hv_calc(np.array([[c, l]])) for c, l in zip(b2_costs, b2_lats)]
+
+        # ── Wilcoxon signed-rank test: NSGA-III HV vs B2 HV ──────────
+        w_stat, p_val = wilcoxon(nsga_hvs, b2_hvs, alternative='greater')
+        sig_label = ('***' if p_val < 0.001 else
+                     '**'  if p_val < 0.01  else
+                     '*'   if p_val < 0.05  else 'ns')
 
         # ── Print statistics table ─────────────────────────────────────
-        print(f"\n  {'Strategy':<22} {'Cost mean±std (USD)':>24} {'Latency mean±std (s)':>22}")
-        print(f"  {'─'*22} {'─'*24} {'─'*22}")
-        print(f"  {'NSGA-III Balanced':<22}"
-              f"  ${np.mean(nsga_costs):.5f} ± {np.std(nsga_costs):.5f}"
-              f"  {np.mean(nsga_lats):.1f} ± {np.std(nsga_lats):.1f}s")
-        if nsga_hvs:
-            print(f"    HV: {np.mean(nsga_hvs):.6f} ± {np.std(nsga_hvs):.6f}")
+        W = 24
+        print(f"\n  {'Strategy':<22} {'Cost mean±std':>{W}} {'Latency mean±std':>{W}} {'HV mean±std':>{W}}")
+        print(f"  {'─'*22} {'─'*W} {'─'*W} {'─'*W}")
+        print(f"  {'NSGA-III':<22}"
+              f"  ${np.mean(nsga_costs):.4f}±{np.std(nsga_costs):.4f}"
+              f"  {np.mean(nsga_lats):.1f}±{np.std(nsga_lats):.1f}s"
+              f"  {np.mean(nsga_hvs):.4f}±{np.std(nsga_hvs):.4f}")
         print(f"  {'B2 Weighted-Sum GA':<22}"
-              f"  ${np.mean(b2_costs):.5f} ± {np.std(b2_costs):.5f}"
-              f"  {np.mean(b2_lats):.1f} ± {np.std(b2_lats):.1f}s")
-        for bl_label, v in static_results.items():
-            print(f"  {bl_label:<22}  ${v['cost']:>10.5f} (det.)   {v['latency']:>9.1f}s (det.)")
+              f"  ${np.mean(b2_costs):.4f}±{np.std(b2_costs):.4f}"
+              f"  {np.mean(b2_lats):.1f}±{np.std(b2_lats):.1f}s"
+              f"  {np.mean(b2_hvs):.4f}±{np.std(b2_hvs):.4f}")
+        for bl, v in static.items():
+            print(f"  {bl:<22}  ${v['cost']:.4f} (det.)    {v['latency']:.1f}s (det.)    — ")
+        print(f"\n  Wilcoxon HV (NSGA-III > B2): W={w_stat:.1f}, p={p_val:.4e} {sig_label}")
+        print(f"  NSGA-III mean Pareto size  : {np.mean(nsga_npareto):.1f} solutions")
+        print(f"  NSGA-III mean overhead     : {np.mean(nsga_overheads):.2f}s")
 
-    # ── Save all raw runs to CSV ───────────────────────────────────────
+        all_data[wl_name] = {
+            'nsga'   : {'costs': nsga_costs, 'lats': nsga_lats,
+                        'hvs': nsga_hvs, 'overheads': nsga_overheads,
+                        'npareto': nsga_npareto},
+            'b2'     : {'costs': b2_costs, 'lats': b2_lats, 'hvs': b2_hvs},
+            'b1'     : static['B1-AllSmall'],
+            'b3'     : static['B3-AllLarge'],
+            'wilcoxon': {'stat': w_stat, 'p_val': p_val, 'sig': sig_label},
+        }
+
+        # ── CSV rows ───────────────────────────────────────────────────
+        for i in range(n_runs):
+            csv_rows.append([wl_name, 'NSGA-III', i,
+                             nsga_costs[i], nsga_lats[i], nsga_hvs[i],
+                             nsga_overheads[i], nsga_npareto[i]])
+        for i in range(n_runs):
+            csv_rows.append([wl_name, 'B2-WeightedSumGA', i,
+                             b2_costs[i], b2_lats[i], b2_hvs[i], '', ''])
+        csv_rows.append([wl_name, 'B1-AllSmall', 0,
+                         static['B1-AllSmall']['cost'],
+                         static['B1-AllSmall']['latency'], '', '', ''])
+        csv_rows.append([wl_name, 'B3-AllLarge', 0,
+                         static['B3-AllLarge']['cost'],
+                         static['B3-AllLarge']['latency'], '', '', ''])
+
+    # ── Save raw data CSV ──────────────────────────────────────────────
     csv_path = "evaluation_results.csv"
     with open(csv_path, 'w', newline='') as f:
         w = csv.writer(f)
-        w.writerow(['workload', 'strategy', 'run', 'cost_usd', 'latency_sec', 'hypervolume'])
+        w.writerow(['workload', 'strategy', 'run', 'cost_usd', 'latency_sec',
+                    'hypervolume', 'overhead_sec', 'n_pareto'])
         w.writerows(csv_rows)
     print(f"\n  [EVAL] Raw results saved → {csv_path}")
+
+    # ── Generate all Chapter 5 figures ────────────────────────────────
+    _plot_chapter5(all_data)
 
     # ── Deploy balanced Medium plan ────────────────────────────────────
     print(f"\n[EVAL] Deploying Medium balanced plan ({('DRY-RUN' if dry_run else 'LIVE')})...")
@@ -212,6 +262,151 @@ def run_evaluation(dry_run: bool = True, n_gen: int = 100, n_runs: int = 30):
     engine_med.run(seed=0)
     plan_med = engine_med.select_plan(cost_weight=0.5)
     KubeVirtAdapter(dry_run=dry_run).deploy_pipeline(plan_med, lpm_med.get_task_order())
+
+
+def _plot_chapter5(all_data: dict):
+    """
+    Generates three publication-quality figures for Chapter 5:
+      Figure 5.2 — Box plots: cost and latency per workload (chapter5_boxplots.png)
+      Figure 5.3 — Hypervolume bar chart with Wilcoxon significance (chapter5_hv.png)
+      Figure 5.4 — Scalability: cost and latency vs workload level (chapter5_scalability.png)
+    """
+    import numpy as np
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+
+    workloads  = list(all_data.keys())
+    COLORS = {
+        'NSGA-III'        : '#2DC653',
+        'B2 W-Sum GA'     : '#2176AE',
+        'B1 All-Small'    : '#FF6B35',
+        'B3 All-Large'    : '#9B59B6',
+    }
+
+    # ── Figure 5.2: Box plots (cost + latency, 2 rows × 3 workloads) ──
+    fig, axes = plt.subplots(2, 3, figsize=(15, 8), facecolor='white')
+    fig.suptitle('Cost and Latency Distribution Across Strategies',
+                 fontsize=13, fontweight='bold', y=1.01)
+
+    box_colors = [COLORS['NSGA-III'], COLORS['B2 W-Sum GA'],
+                  COLORS['B1 All-Small'], COLORS['B3 All-Large']]
+    labels = ['NSGA-III', 'B2', 'B1', 'B3']
+
+    for col, wl in enumerate(workloads):
+        d = all_data[wl]
+        cost_data = [d['nsga']['costs'], d['b2']['costs'],
+                     [d['b1']['cost']], [d['b3']['cost']]]
+        lat_data  = [d['nsga']['lats'],  d['b2']['lats'],
+                     [d['b1']['latency']], [d['b3']['latency']]]
+
+        for row, (data, ylabel, title_suffix) in enumerate([
+            (cost_data, 'Cost (USD)',   'Cost'),
+            (lat_data,  'Latency (s)', 'Latency'),
+        ]):
+            ax = axes[row, col]
+            ax.set_facecolor('white')
+            bp = ax.boxplot(data, labels=labels, patch_artist=True,
+                            medianprops={'color': 'black', 'linewidth': 2})
+            for patch, color in zip(bp['boxes'], box_colors):
+                patch.set_facecolor(color)
+                patch.set_alpha(0.75)
+            ax.set_title(f'{wl} — {title_suffix}', fontsize=10)
+            ax.set_ylabel(ylabel, fontsize=9)
+            ax.grid(True, axis='y', color='#dddddd', linewidth=0.7)
+            ax.set_axisbelow(True)
+
+    plt.tight_layout()
+    plt.savefig('chapter5_boxplots.png', dpi=150,
+                bbox_inches='tight', facecolor='white')
+    plt.close()
+    print("  [EVAL] Saved → chapter5_boxplots.png")
+
+    # ── Figure 5.3: HV bar chart with significance markers ─────────────
+    fig, ax = plt.subplots(figsize=(9, 5), facecolor='white')
+    ax.set_facecolor('white')
+    x     = np.arange(len(workloads))
+    width = 0.35
+
+    nsga_hv_m = [np.mean(all_data[wl]['nsga']['hvs']) for wl in workloads]
+    nsga_hv_s = [np.std(all_data[wl]['nsga']['hvs'])  for wl in workloads]
+    b2_hv_m   = [np.mean(all_data[wl]['b2']['hvs'])   for wl in workloads]
+    b2_hv_s   = [np.std(all_data[wl]['b2']['hvs'])    for wl in workloads]
+
+    ax.bar(x - width/2, nsga_hv_m, width, yerr=nsga_hv_s,
+           label='NSGA-III', color=COLORS['NSGA-III'],
+           capsize=5, alpha=0.85, edgecolor='white')
+    ax.bar(x + width/2, b2_hv_m, width, yerr=b2_hv_s,
+           label='B2 Weighted-Sum GA', color=COLORS['B2 W-Sum GA'],
+           capsize=5, alpha=0.85, edgecolor='white')
+
+    # Significance markers
+    for i, wl in enumerate(workloads):
+        sig   = all_data[wl]['wilcoxon']['sig']
+        y_top = max(nsga_hv_m[i], b2_hv_m[i]) + \
+                max(nsga_hv_s[i], b2_hv_s[i]) * 1.5
+        ax.text(i, y_top, sig, ha='center', va='bottom',
+                fontsize=13, fontweight='bold', color='#222222')
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(workloads, fontsize=11)
+    ax.set_xlabel('Workload Level', fontsize=11)
+    ax.set_ylabel('Hypervolume Indicator', fontsize=11)
+    ax.set_title('Hypervolume: NSGA-III vs B2 Weighted-Sum GA\n'
+                 '(* p<0.05  ** p<0.01  *** p<0.001  ns = not significant)',
+                 fontsize=11, fontweight='bold')
+    ax.legend(fontsize=10)
+    ax.grid(True, axis='y', color='#dddddd', linewidth=0.7)
+    ax.set_axisbelow(True)
+    for sp in ax.spines.values():
+        sp.set_color('#aaaaaa')
+
+    plt.tight_layout()
+    plt.savefig('chapter5_hv.png', dpi=150,
+                bbox_inches='tight', facecolor='white')
+    plt.close()
+    print("  [EVAL] Saved → chapter5_hv.png")
+
+    # ── Figure 5.4: Scalability across workload levels ─────────────────
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5), facecolor='white')
+
+    scale_labels = workloads
+    nsga_c = [np.mean(all_data[wl]['nsga']['costs']) for wl in workloads]
+    nsga_l = [np.mean(all_data[wl]['nsga']['lats'])  for wl in workloads]
+    b2_c   = [np.mean(all_data[wl]['b2']['costs'])   for wl in workloads]
+    b2_l   = [np.mean(all_data[wl]['b2']['lats'])    for wl in workloads]
+    b1_c   = [all_data[wl]['b1']['cost']             for wl in workloads]
+    b1_l   = [all_data[wl]['b1']['latency']          for wl in workloads]
+    b3_c   = [all_data[wl]['b3']['cost']             for wl in workloads]
+    b3_l   = [all_data[wl]['b3']['latency']          for wl in workloads]
+
+    for ax, (nsga_v, b2_v, b1_v, b3_v, ylabel, title) in zip(axes, [
+        (nsga_c, b2_c, b1_c, b3_c, 'Mean Cost (USD)',    'Cost Scalability'),
+        (nsga_l, b2_l, b1_l, b3_l, 'Mean Latency (s)',   'Latency Scalability'),
+    ]):
+        ax.set_facecolor('white')
+        ax.plot(scale_labels, nsga_v, 'o-', color=COLORS['NSGA-III'],
+                lw=2, ms=8, label='NSGA-III')
+        ax.plot(scale_labels, b2_v,   's-', color=COLORS['B2 W-Sum GA'],
+                lw=2, ms=8, label='B2 W-Sum GA')
+        ax.plot(scale_labels, b1_v,   '^--', color=COLORS['B1 All-Small'],
+                lw=1.5, ms=7, label='B1 All-Small', alpha=0.8)
+        ax.plot(scale_labels, b3_v,   'v--', color=COLORS['B3 All-Large'],
+                lw=1.5, ms=7, label='B3 All-Large', alpha=0.8)
+        ax.set_xlabel('Workload Level', fontsize=11)
+        ax.set_ylabel(ylabel, fontsize=11)
+        ax.set_title(title, fontsize=11, fontweight='bold')
+        ax.legend(fontsize=9)
+        ax.grid(True, color='#dddddd', linewidth=0.7)
+        ax.set_axisbelow(True)
+        for sp in ax.spines.values():
+            sp.set_color('#aaaaaa')
+
+    plt.tight_layout()
+    plt.savefig('chapter5_scalability.png', dpi=150,
+                bbox_inches='tight', facecolor='white')
+    plt.close()
+    print("  [EVAL] Saved → chapter5_scalability.png")
 
 
 # ── CLI entry point ────────────────────────────────────────────────────────────
