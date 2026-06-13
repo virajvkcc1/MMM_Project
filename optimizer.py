@@ -116,11 +116,9 @@ class PipelineOrchestrationProblem(Problem):
             node     = dag.nodes[tid]
             vmi_opts = node['vmi_opts']
             vmi_ids  = [VMI_NAMES.index(v) for v in vmi_opts if v in VMI_NAMES]
-
-            # VMI index bounds from allowed options only
-            # CPU/MEM encoded as fractions [0.5, 1.0] — no absolute bounds needed
-            xl += [float(min(vmi_ids)), 0.5, 0.5]
-            xu += [float(max(vmi_ids)), 1.0, 1.0]
+            xl += [float(min(vmi_ids)), float(min_cpu), float(min_mem)]
+            xu += [float(max(vmi_ids)), float(max_cpu), float(max_mem)]
+          
 
         super().__init__(
             n_var        = n_var,
@@ -181,8 +179,8 @@ class PipelineOrchestrationProblem(Problem):
 
         out['F'] = F
         out['G'] = G
-
-
+        #out['G'] = np.zeros((len(X), 10))
+ 
 # ── Orchestration Engine ───────────────────────────────────────────────────────
 
 class OrchestrationOptimizationEngine:
