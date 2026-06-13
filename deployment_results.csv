@@ -1,16 +1,101 @@
 timestamp,event,task_id,vmi_name,vmi_type,namespace,cpu,mem_gb,duration_sec,status,notes
-2026-03-20T02:20:40.646516,deploy,tweet_ingest,task-tweet_ingest,small,speed-layer,8.0,16.0,0.0501,DRY_RUN,
-2026-03-20T02:20:40.696862,deploy,stream_classify,task-stream_classify,small,speed-layer,8.0,16.0,0.0501,DRY_RUN,
-2026-03-20T02:20:40.747296,deploy,batch_retrain,task-batch_retrain,medium,batch-layer,8.0,16.0,0.0502,DRY_RUN,
-2026-03-20T02:20:40.797647,deploy,result_store,task-result_store,small,serve-layer,8.0,16.0,0.0501,DRY_RUN,
-2026-03-20T02:20:40.848119,deploy,serving_api,task-serving_api,small,serve-layer,8.0,16.0,0.0502,DRY_RUN,
-2026-03-20T07:47:06.022018,deploy,tweet_ingest,task-tweet_ingest,medium,speed-layer,1.33,0.58,0.0503,DRY_RUN,
-2026-03-20T07:47:06.072647,deploy,stream_classify,task-stream_classify,medium,speed-layer,1.09,0.61,0.0502,DRY_RUN,
-2026-03-20T07:47:06.123182,deploy,batch_retrain,task-batch_retrain,large,batch-layer,1.37,1.23,0.0502,DRY_RUN,
-2026-03-20T07:47:06.173604,deploy,result_store,task-result_store,small,serve-layer,1.0,0.5,0.0502,DRY_RUN,
-2026-03-20T07:47:06.223994,deploy,serving_api,task-serving_api,medium,serve-layer,1.44,0.95,0.0502,DRY_RUN,
-2026-03-25T15:06:49.396703,deploy,tweet_ingest,task-tweet_ingest,medium,speed-layer,1.55,0.54,0.0501,DRY_RUN,
-2026-03-25T15:06:49.448501,deploy,stream_classify,task-stream_classify,medium,speed-layer,1.12,0.64,0.0502,DRY_RUN,
-2026-03-25T15:06:49.498871,deploy,batch_retrain,task-batch_retrain,large,batch-layer,1.27,1.23,0.0501,DRY_RUN,
-2026-03-25T15:06:49.549257,deploy,result_store,task-result_store,small,serve-layer,1.0,0.5,0.0502,DRY_RUN,
-2026-03-25T15:06:49.599632,deploy,serving_api,task-serving_api,medium,serve-layer,1.36,0.85,0.0502,DRY_RUN,
+2026-04-16T12:58:26.198482,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,2.45,5.41,0.0243,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': '702e7d2c-8696-46b7-b488-f2f6a46ca41b', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Thu, 16 Apr 2026 12:58:26 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
+2026-04-16T13:01:48.936420,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,3.75,6.49,0.0502,DRY_RUN,
+2026-04-16T13:01:48.986735,deploy,stream_classify,task-stream-classify,medium,speed-layer,2.76,5.56,0.0501,DRY_RUN,
+2026-04-16T13:01:49.037020,deploy,batch_retrain,task-batch-retrain,large,batch-layer,6.22,9.44,0.0501,DRY_RUN,
+2026-04-16T13:01:49.087421,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0502,DRY_RUN,
+2026-04-16T13:01:49.137758,deploy,serving_api,task-serving-api,medium,serve-layer,3.42,4.8,0.0502,DRY_RUN,
+2026-04-17T07:44:55.191982,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,3.64,5.01,0.0236,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': 'a59e1a2e-ceaf-461e-b214-fae517177fbe', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Fri, 17 Apr 2026 07:44:55 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
+2026-04-17T08:14:32.528753,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0503,DRY_RUN,
+2026-04-17T08:14:32.579059,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T08:14:32.629345,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T08:14:32.679626,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T08:14:32.729915,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T08:21:07.342197,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0226,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': 'f48b0327-12f4-4363-bd92-18c37b14bd72', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Fri, 17 Apr 2026 08:21:07 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
+2026-04-17T09:47:08.897705,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0256,SUCCESS,
+2026-04-17T09:47:08.932586,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0347,SUCCESS,
+2026-04-17T09:47:08.981309,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0485,SUCCESS,
+2026-04-17T09:47:09.050597,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0691,SUCCESS,
+2026-04-17T09:47:09.116884,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0661,SUCCESS,
+2026-04-17T09:48:48.335594,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0271,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': '5b457720-cf1f-4ee5-94d7-ba5062b2079f', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Fri, 17 Apr 2026 09:48:48 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
+2026-04-17T09:49:35.141693,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0307,SUCCESS,
+2026-04-17T09:49:35.169442,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0276,SUCCESS,
+2026-04-17T09:49:35.210454,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0409,SUCCESS,
+2026-04-17T09:49:35.268129,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0575,SUCCESS,
+2026-04-17T09:49:35.336018,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0677,SUCCESS,
+2026-04-17T09:57:51.504907,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T09:57:51.555209,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T09:57:51.605505,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T09:57:51.655816,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T09:57:51.706147,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T10:02:52.125553,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T10:02:52.177909,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T10:02:52.228326,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T10:02:52.278621,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T10:02:52.328971,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-17T10:03:11.303703,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0217,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': '0c93696d-1f7d-48d7-bc9c-e0bab2f4595d', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Fri, 17 Apr 2026 10:03:11 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
+2026-04-17T10:21:13.274002,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T10:21:13.324332,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0502,DRY_RUN,
+2026-04-17T10:21:13.374627,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-17T10:21:13.424906,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-17T10:21:13.475164,deploy,serving_api,task-serving-api,small,serve-layer,2.0,4.0,0.0501,DRY_RUN,
+2026-04-21T22:35:43.724127,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,8.0,0.0331,SUCCESS,
+2026-04-21T22:35:43.743181,deploy,stream_classify,task-stream-classify,small,speed-layer,2.0,4.0,0.0184,SUCCESS,
+2026-04-21T22:35:43.778316,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.035,SUCCESS,
+2026-04-21T22:35:43.835140,deploy,result_store,task-result-store,small,serve-layer,2.0,4.0,0.0567,SUCCESS,
+2026-04-21T22:35:43.941866,deploy,serving_api,task-serving-api,medium,serve-layer,4.0,8.0,0.1066,SUCCESS,
+2026-04-21T22:59:59.628020,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,7.99,0.022,ERROR,"(409)
+Reason: Conflict
+HTTP response headers: HTTPHeaderDict({'Audit-Id': '4a232b4c-1d09-4faf-9d9f-ef863371b7ba', 'Cache-Control': 'no-cache, private', 'Content-Type': 'application/json', 'X-Kubernetes-Pf-Flowschema-Uid': '3a0b30c4-f361-4722-94ed-465561e021a9', 'X-Kubernetes-Pf-Prioritylevel-Uid': '86e2b53b-4768-4a2b-85b6-f30a4296e367', 'Date': 'Tue, 21 Apr 2026 22:59:59 GMT', 'Content-Length': '284'})
+HTTP response body: {""kind"":""Status"",""apiVersion"":""v1"",""metadata"":{},""status"":""Failure"",""message"":""virtualmachineinstances.kubevirt.io \""task-tweet-ingest\"" already exists"",""reason"":""AlreadyExists"",""details"":{""name"":""task-tweet-ingest"",""group"":""kubevirt.io"",""kind"":""virtualmachineinstances""},""code"":409}
+
+"
+2026-04-21T23:03:23.515621,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,7.99,0.0282,SUCCESS,
+2026-04-21T23:03:23.533422,deploy,stream_preprocess,task-stream-preprocess,small,speed-layer,1.97,3.9,0.0176,SUCCESS,
+2026-04-21T23:03:23.576309,deploy,batch_preprocess,task-batch-preprocess,medium,batch-layer,4.0,8.0,0.0427,SUCCESS,
+2026-04-21T23:03:23.635779,deploy,stream_classify,task-stream-classify,small,speed-layer,1.99,3.97,0.0593,SUCCESS,
+2026-04-21T23:03:23.727691,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0918,SUCCESS,
+2026-04-21T23:03:23.834222,deploy,model_validate,task-model-validate,medium,batch-layer,4.0,8.0,0.1064,SUCCESS,
+2026-04-21T23:03:23.918837,deploy,result_store,task-result-store,medium,serve-layer,3.89,7.89,0.0845,SUCCESS,
+2026-04-21T23:03:23.998407,deploy,serving_api,task-serving-api,large,serve-layer,7.94,13.14,0.0794,SUCCESS,
+2026-04-23T08:11:57.434742,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,7.98,0.0501,DRY_RUN,
+2026-04-23T08:11:57.485604,deploy,stream_preprocess,task-stream-preprocess,small,speed-layer,2.0,3.99,0.0502,DRY_RUN,
+2026-04-23T08:11:57.536062,deploy,batch_preprocess,task-batch-preprocess,medium,batch-layer,4.0,8.0,0.0502,DRY_RUN,
+2026-04-23T08:11:57.586488,deploy,stream_classify,task-stream-classify,small,speed-layer,1.98,3.99,0.0501,DRY_RUN,
+2026-04-23T08:11:57.636873,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-23T08:11:57.687192,deploy,model_validate,task-model-validate,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-23T08:11:57.737569,deploy,result_store,task-result-store,medium,serve-layer,4.0,7.88,0.0502,DRY_RUN,
+2026-04-23T08:11:57.787925,deploy,serving_api,task-serving-api,large,serve-layer,7.91,15.99,0.0501,DRY_RUN,
+2026-04-23T09:25:11.445853,deploy,tweet_ingest,task-tweet-ingest,medium,speed-layer,4.0,7.98,0.0502,DRY_RUN,
+2026-04-23T09:25:11.496257,deploy,stream_preprocess,task-stream-preprocess,small,speed-layer,2.0,3.99,0.0502,DRY_RUN,
+2026-04-23T09:25:11.546645,deploy,batch_preprocess,task-batch-preprocess,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-23T09:25:11.597048,deploy,stream_classify,task-stream-classify,small,speed-layer,1.98,3.99,0.0501,DRY_RUN,
+2026-04-23T09:25:11.647368,deploy,batch_retrain,task-batch-retrain,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-23T09:25:11.697729,deploy,model_validate,task-model-validate,medium,batch-layer,4.0,8.0,0.0501,DRY_RUN,
+2026-04-23T09:25:11.748097,deploy,result_store,task-result-store,medium,serve-layer,4.0,7.88,0.0501,DRY_RUN,
+2026-04-23T09:25:11.798448,deploy,serving_api,task-serving-api,large,serve-layer,7.91,15.99,0.0502,DRY_RUN,
