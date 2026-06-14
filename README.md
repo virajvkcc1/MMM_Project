@@ -113,5 +113,7 @@ MMM_Project/
  
 ---
 
-
+## Licence
+ 
+MIT — see [LICENSE](LICENSE) for details.
 
