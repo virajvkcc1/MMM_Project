@@ -26,15 +26,18 @@ import argparse
 import sys
 import json
 from pathlib import Path
-
+import sys, os
+sys.path.insert(0, os.path.dirname(__file__))
 # ── Import middleware layers ───────────────────────────────────────────────────
 from lpm       import LogicalPipelineManager
 from optimizer import OrchestrationOptimizationEngine
 from executor  import KubeVirtAdapter
 
 
-PIPELINE_YAML = "pipeline.yaml"
-
+#PIPELINE_YAML = "pipeline.yaml"
+PIPELINE_YAML = os.path.join(
+    os.path.dirname(__file__), "..", "configs", "pipeline.yaml"
+)
 
 def run_middleware(dry_run: bool = True,
                    cost_weight: float = 0.5,
