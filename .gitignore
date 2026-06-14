@@ -1,0 +1,15 @@
+# Datasets
+training.1600000.processed.noemoticon.csv
+*.zip
+*.json
+
+# Python virtual environment
+venv/
+__pycache__/
+*.pyc
+
+# Results & Logs
+*.log
+#deployment_results.csv
+#dag_visualization.png
+#pareto_front.png

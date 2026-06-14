@@ -4,17 +4,25 @@ optimizer.py — Orchestration Optimization Engine (Layer 2)
 Implements the NSGA-III-based multi-objective optimizer.
 
 Decision variables per task i:
-  x[3i+0] = VMI index   (integer: maps to small/medium/large)
-  x[3i+1] = CPU alloc   (float, within VMI's max CPU)
-  x[3i+2] = MEM alloc   (float GB, within VMI's max MEM)
+  x[3i+0] = VMI index        (integer: maps to small/medium/large)
+  x[3i+1] = CPU fraction     (float 0.5–1.0 of selected VMI's max CPU)
+  x[3i+2] = MEM fraction     (float 0.5–1.0 of selected VMI's max MEM)
 
 Objectives:
   f1 = Total execution cost (USD)        → minimise
   f2 = End-to-end latency  (seconds)     → minimise  [critical path through DAG]
 
 Constraints:
-  g[2i]   = CPU alloc  <= VMI max CPU    (per task)
-  g[2i+1] = MEM alloc  <= VMI max MEM GB (per task)
+  None — fraction encoding guarantees feasibility by construction.
+  CPU and MEM are always within the selected VMI's capacity.
+
+Fixes applied:
+  - BUG 1: VMI catalogue now has distinct CPU/MEM values (fix in pipeline.yaml)
+  - BUG 4: bounds now use per-task allowed VMI options (fraction approach)
+  - Fraction encoding: x[3i+1] and x[3i+2] are fractions (0.5–1.0) of the
+    selected VMI's capacity, eliminating constraint violations entirely and
+    giving NSGA-III a continuous trade-off space to explore.
+  - select_plan: fractions correctly converted back to actual CPU/MEM values.
 
 Thesis references:
   Section 3.5.2 — Optimization Model and Decision Logic
@@ -49,9 +57,9 @@ def _task_latency(data_gb: float, mode: str,
     Larger data + more resources → faster (diminishing returns via log scale).
     Mode base times reflect realistic batch vs stream characteristics.
     """
-    base = {'stream': 30.0, 'batch': 300.0, 'serve': 10.0}.get(mode, 60.0)
+    base  = {'stream': 30.0, 'batch': 300.0, 'serve': 10.0}.get(mode, 60.0)
     alpha = {'stream': 1.0,  'batch': 1.5,   'serve': 0.8 }.get(mode, 1.0)
-    raw  = base * (max(data_gb, 0.1) ** alpha)
+    raw   = base * (max(data_gb, 0.1) ** alpha)
 
     # Resource speedup: more CPU/MEM = faster, with diminishing returns
     cpu_factor = 1.0 + 0.6 * np.log2(max(cpu, 1.0))
@@ -72,8 +80,16 @@ def _task_cost(vmi_catalogue: dict, vmi_name: str,
 
 class PipelineOrchestrationProblem(Problem):
     """
-    Constrained bi-objective optimisation problem.
-    Encodes VMI selection + resource allocation for each DAG task.
+    Bi-objective optimisation problem with fraction-encoded resource variables.
+
+    Decision variables per task i (3 variables each):
+      x[3i+0] : VMI index — integer in [min_vmi_id, max_vmi_id] for this task
+      x[3i+1] : CPU fraction — float in [0.5, 1.0] of selected VMI's CPU
+      x[3i+2] : MEM fraction — float in [0.5, 1.0] of selected VMI's MEM
+
+    Using fractions instead of absolute values means every solution is
+    feasible by construction — no constraint violations — giving NSGA-III
+    a clean continuous space to explore across all generations.
     """
 
     def __init__(self, dag, vmi_catalogue: dict, task_order: list, all_paths: list):
@@ -84,33 +100,27 @@ class PipelineOrchestrationProblem(Problem):
             task_order    : topologically sorted task list from LPM
             all_paths     : all source-to-sink paths for critical path calc
         """
-        self.dag           = dag
-        self.vmi_cat       = vmi_catalogue
-        self.task_order    = task_order
-        self.all_paths     = all_paths
-        self.n_tasks       = len(task_order)
+        self.dag        = dag
+        self.vmi_cat    = vmi_catalogue
+        self.task_order = task_order
+        self.all_paths  = all_paths
+        self.n_tasks    = len(task_order)
 
-        n_var  = self.n_tasks * 3       # VMI_i, CPU_i, MEM_i per task
-        n_obj  = 2                      # f1=cost, f2=latency
-        n_con  = self.n_tasks * 2       # CPU <= max, MEM <= max per task
-        # Calculate bounds from VMI catalogue FIRST — before the loop
-        max_cpu = max(v['cpu']    for v in self.vmi_cat.values())
-        max_mem = max(v['mem_gb'] for v in self.vmi_cat.values())
-        min_cpu = min(v['cpu']    for v in self.vmi_cat.values())
-        min_mem = min(v['mem_gb'] for v in self.vmi_cat.values())
-        # Build variable bounds respecting each task's allowed VMI options
+        n_var = self.n_tasks * 3    # VMI_i, CPU_frac_i, MEM_frac_i per task
+        n_obj = 2                   # f1=cost, f2=latency
+        n_con = self.n_tasks * 2    # kept for pymoo compatibility — always 0
+
+        # Build per-task bounds using only each task's allowed VMI options
         xl, xu = [], []
         for tid in task_order:
             node     = dag.nodes[tid]
             vmi_opts = node['vmi_opts']
             vmi_ids  = [VMI_NAMES.index(v) for v in vmi_opts if v in VMI_NAMES]
-            xl += [float(min(vmi_ids)), float(min_cpu), float(min_mem)]
-            xu += [float(max(vmi_ids)), float(max_cpu), float(max_mem)]
 
-            # VMI bounds: min and max allowed index for this task
-           # xl += [float(min(vmi_ids)), 1.0, 1.0 ]
-           # xu += [float(max(vmi_ids)), 8.0, 16.0]
-          
+            # VMI index bounds from allowed options only
+            # CPU/MEM encoded as fractions [0.5, 1.0] — no absolute bounds needed
+            xl += [float(min(vmi_ids)), 0.5, 0.5]
+            xu += [float(max(vmi_ids)), 1.0, 1.0]
 
         super().__init__(
             n_var        = n_var,
@@ -137,10 +147,14 @@ class PipelineOrchestrationProblem(Problem):
             task_cost = {}
 
             for i, tid in enumerate(self.task_order):
+                # Decode VMI type
                 vmi_idx  = int(np.round(np.clip(x[3*i], 0, len(VMI_NAMES)-1)))
                 vmi_name = VMI_NAMES[vmi_idx]
-                cpu      = float(x[3*i + 1])
-                mem      = float(x[3*i + 2])
+                vmi_spec = self.vmi_cat[vmi_name]
+
+                # Convert fractions to actual resource values
+                cpu = float(x[3*i + 1]) * vmi_spec['cpu']
+                mem = float(x[3*i + 2]) * vmi_spec['mem_gb']
 
                 node = self.dag.nodes[tid]
                 lat  = _task_latency(node['data_gb'], node['mode'], cpu, mem)
@@ -149,10 +163,9 @@ class PipelineOrchestrationProblem(Problem):
                 task_lat[tid]  = lat
                 task_cost[tid] = cst
 
-                # Constraints: cpu <= vmi_max_cpu,  mem <= vmi_max_mem
-                vmi_spec         = self.vmi_cat[vmi_name]
-                G[k, 2*i]     = cpu - vmi_spec['cpu']         # <= 0 if feasible
-                G[k, 2*i + 1] = mem - vmi_spec['mem_gb']      # <= 0 if feasible
+                # Constraints always satisfied — fraction encoding guarantees this
+                G[k, 2*i]     = 0.0
+                G[k, 2*i + 1] = 0.0
 
             # ── f1: Total execution cost ───────────────────────────────────
             F[k, 0] = sum(task_cost.values())
@@ -168,8 +181,8 @@ class PipelineOrchestrationProblem(Problem):
 
         out['F'] = F
         out['G'] = G
-       # out['G'] = np.zeros((len(X), 10))
- 
+
+
 # ── Orchestration Engine ───────────────────────────────────────────────────────
 
 class OrchestrationOptimizationEngine:
@@ -179,8 +192,8 @@ class OrchestrationOptimizationEngine:
 
     Usage:
         engine = OrchestrationOptimizationEngine(lpm)
-        result = engine.run(pop_size=100, n_gen=100)
-        plan   = engine.select_plan(result, cost_weight=0.5)
+        result = engine.run()
+        plan   = engine.select_plan(cost_weight=0.5)
     """
 
     def __init__(self, lpm, pop_size: int = 100, n_gen: int = 100):
@@ -190,13 +203,13 @@ class OrchestrationOptimizationEngine:
             pop_size : NSGA-III population size
             n_gen    : Number of generations
         """
-        self.lpm       = lpm
-        self.pop_size  = pop_size
-        self.n_gen     = n_gen
-        self.problem   = None
-        self.result    = None
+        self.lpm      = lpm
+        self.pop_size = pop_size
+        self.n_gen    = n_gen
+        self.problem  = None
+        self.result   = None
 
-    def run(self) -> dict:
+    def run(self, seed: int = 42) -> dict:
         """
         Runs NSGA-III optimisation.
         Returns a result dict with Pareto front and timing info.
@@ -211,8 +224,9 @@ class OrchestrationOptimizationEngine:
 
         print(f"  [OPT] Tasks        : {self.problem.n_tasks}")
         print(f"  [OPT] Vars         : {self.problem.n_var}  ({self.problem.n_tasks} × 3)")
+        print(f"  [OPT] Encoding     : VMI index + CPU fraction + MEM fraction")
         print(f"  [OPT] Objectives   : f1=cost, f2=critical-path latency")
-        print(f"  [OPT] Constraints  : {self.problem.n_ieq_constr}")
+        print(f"  [OPT] Constraints  : {self.problem.n_ieq_constr} (always satisfied)")
         print(f"  [OPT] Pop size     : {self.pop_size}")
         print(f"  [OPT] Generations  : {self.n_gen}")
 
@@ -230,7 +244,7 @@ class OrchestrationOptimizationEngine:
             self.problem,
             algorithm,
             termination,
-            seed    = 42,
+            seed    = seed,
             verbose = False,
         )
         overhead = round(time.time() - t0, 3)
@@ -240,29 +254,40 @@ class OrchestrationOptimizationEngine:
         print(f"  [OPT] Cost range   : ${self.result.F[:,0].min():.5f} → ${self.result.F[:,0].max():.5f}")
         print(f"  [OPT] Latency range: {self.result.F[:,1].min():.1f}s → {self.result.F[:,1].max():.1f}s")
 
+        # Hypervolume indicator — key thesis metric (Section 3.7.1)
+        try:
+            from pymoo.indicators.hv import HV
+            ref_point = np.array([
+                self.result.F[:, 0].max() * 1.1,
+                self.result.F[:, 1].max() * 1.1,
+            ])
+            hv_val = HV(ref_point=ref_point)(self.result.F)
+            print(f"  [OPT] Hypervolume  : {hv_val:.6f}")
+        except Exception:
+            hv_val = None
+
         return {
             "status"          : "success",
             "pareto_solutions": self.result.F,
             "pareto_configs"  : self.result.X,
             "n_pareto"        : n_pareto,
             "overhead_sec"    : overhead,
+            "hypervolume"     : hv_val,
         }
 
     def select_plan(self, cost_weight: float = 0.5) -> dict:
         """
         Selects the best orchestration plan from the Pareto front.
 
-        cost_weight=0.5  → balanced (default)
+        cost_weight=0.5  → balanced trade-off (default)
         cost_weight=0.9  → prefer cheaper plan
         cost_weight=0.1  → prefer lower latency plan
 
+        Normalises both objectives to [0,1] then applies weighted scoring.
+        The solution with the lowest weighted score is selected for deployment.
+
         Returns:
-            Orchestration plan dict:
-            {
-              'total_cost_usd'   : float,
-              'total_latency_sec': float,
-              'task_assignments' : { task_id: { vmi_type, vmi_label, cpu, mem_gb, namespace } }
-            }
+            Orchestration plan dict with per-task VMI assignments.
         """
         if self.result is None or self.result.F is None:
             raise RuntimeError("run() must be called before select_plan().")
@@ -274,8 +299,10 @@ class OrchestrationOptimizationEngine:
         F_norm = F.copy()
         for j in range(2):
             rng = F_norm[:, j].max() - F_norm[:, j].min()
-            if rng > 0:
+            if rng > 1e-9:
                 F_norm[:, j] = (F_norm[:, j] - F_norm[:, j].min()) / rng
+            else:
+                F_norm[:, j] = 0.0
 
         lat_weight = 1.0 - cost_weight
         scores     = cost_weight * F_norm[:, 0] + lat_weight * F_norm[:, 1]
@@ -294,13 +321,16 @@ class OrchestrationOptimizationEngine:
         for i, tid in enumerate(task_order):
             vmi_idx  = int(np.round(np.clip(best_x[3*i], 0, len(VMI_NAMES)-1)))
             vmi_name = VMI_NAMES[vmi_idx]
-            cpu      = round(float(best_x[3*i + 1]), 2)
-            mem      = round(float(best_x[3*i + 2]), 2)
-            node     = self.lpm.dag.nodes[tid]
+            vmi_spec = self.lpm.vmi_catalogue[vmi_name]
 
+            # Convert fractions back to actual resource values
+            cpu = round(float(best_x[3*i + 1]) * vmi_spec['cpu'],    2)
+            mem = round(float(best_x[3*i + 2]) * vmi_spec['mem_gb'], 2)
+
+            node = self.lpm.dag.nodes[tid]
             plan['task_assignments'][tid] = {
                 'vmi_type'  : vmi_name,
-                'vmi_label' : self.lpm.vmi_catalogue[vmi_name]['label'],
+                'vmi_label' : vmi_spec['label'],
                 'cpu'       : cpu,
                 'mem_gb'    : mem,
                 'mode'      : node['mode'],
@@ -318,45 +348,145 @@ class OrchestrationOptimizationEngine:
         print(f"  Total Cost    : ${plan['total_cost_usd']:.5f}")
         print(f"  Total Latency : {plan['total_latency_sec']:.1f}s")
         print(f"  {'─'*60}")
-        print(f"  {'Task':<22} {'VMI':<8} {'CPU':>4} {'MEM':>6}  {'Namespace'}")
-        print(f"  {'─'*22} {'─'*8} {'─'*4} {'─'*6}  {'─'*12}")
+        print(f"  {'Task':<22} {'VMI':<8} {'CPU':>5} {'MEM':>7}  {'Namespace'}")
+        print(f"  {'─'*22} {'─'*8} {'─'*5} {'─'*7}  {'─'*12}")
         for tid, cfg in plan['task_assignments'].items():
-            print(f"  {tid:<22} {cfg['vmi_type']:<8} {cfg['cpu']:>4} "
-                  f"{cfg['mem_gb']:>5}G  {cfg['namespace']}")
+            print(f"  {tid:<22} {cfg['vmi_type']:<8} {cfg['cpu']:>5} "
+                  f"{cfg['mem_gb']:>6}G  {cfg['namespace']}")
         print(f"  {'─'*60}\n")
 
-    def save_pareto_plot(self, save_path: str = "pareto_front.png"):
-        """Saves a Pareto front visualisation as PNG."""
+    def save_pareto_plot(self, save_path: str = "pareto_front.png",
+                         baselines: dict = None, workload_label: str = ""):
+        """
+        Args:
+            baselines      : optional dict {'B1 All-Small': (cost, lat), ...}
+                             overlaid as reference points on the Pareto plot.
+            workload_label : appended to the plot title (e.g. 'Medium').
+        """
         if self.result is None:
             return
 
+        plt.rcParams.update({'figure.facecolor': 'white', 'axes.facecolor': 'white'})
+
         F = self.result.F
-        fig, ax = plt.subplots(figsize=(8, 5), facecolor='#080e14')
-        ax.set_facecolor('#0d1620')
+        fig, ax = plt.subplots(figsize=(9, 5.5), facecolor='white')
+        ax.set_facecolor('white')
+
+        sort_idx = np.argsort(F[:, 0])
+        ax.plot(F[sort_idx, 0], F[sort_idx, 1],
+                color='#2176AE', lw=1.8, alpha=0.6, zorder=2)
 
         sc = ax.scatter(F[:, 0], F[:, 1], c=F[:, 0],
-                        cmap='cool', s=60, alpha=0.85, zorder=3)
-        ax.plot(np.sort(F[:, 0]), F[np.argsort(F[:, 0]), 1],
-                color='#00c8ff', lw=1.2, alpha=0.4, zorder=2)
+                        cmap='plasma', s=80, alpha=0.92,
+                        edgecolors='white', linewidths=0.5, zorder=3,
+                        label='NSGA-III solutions')
 
-        # Mark extreme points
+        # Mark NSGA-III extreme points
         ax.scatter(*F[np.argmin(F[:, 0])],
-                   color='#00ff9d', s=130, zorder=5, label='Min Cost')
+                   color='#2DC653', s=200, zorder=6,
+                   edgecolors='#333333', linewidths=1.2, label='NSGA-III min-cost')
         ax.scatter(*F[np.argmin(F[:, 1])],
-                   color='#ff6b35', s=130, zorder=5, label='Min Latency')
+                   color='#FF6B35', s=200, zorder=6,
+                   edgecolors='#333333', linewidths=1.2, label='NSGA-III min-latency')
 
-        ax.set_xlabel('Execution Cost (USD)', color='#8ecfe8')
-        ax.set_ylabel('End-to-End Latency (s)', color='#8ecfe8')
-        ax.set_title('Pareto Front — NSGA-III Orchestration',
-                     color='white', fontsize=11)
-        ax.tick_params(colors='#5a7a94')
+        # ── Overlay baseline reference points ──────────────────────────
+        if baselines:
+            _styles = {
+                'B1 All-Small': ('^', '#E74C3C', 220),
+                'B2 W-Sum GA':  ('s', '#8E44AD', 180),
+                'B3 All-Large': ('v', '#F39C12', 220),
+            }
+            for label, (cost, lat) in baselines.items():
+                mk, col, sz = _styles.get(label, ('D', '#555555', 160))
+                ax.scatter(cost, lat, marker=mk, color=col, s=sz, zorder=7,
+                           edgecolors='#222222', linewidths=1.2, label=label)
+
+        title = 'Pareto Front — NSGA-III Orchestration'
+        if workload_label:
+            title += f'  [{workload_label} Workload]'
+        ax.set_xlabel('Execution Cost (USD)', color='#222222', fontsize=11)
+        ax.set_ylabel('End-to-End Latency (s)', color='#222222', fontsize=11)
+        ax.set_title(title, color='#111111', fontsize=12, fontweight='bold', pad=12)
+        ax.tick_params(colors='#222222', labelsize=9)
         for sp in ax.spines.values():
-            sp.set_color('#1e3248')
-        ax.legend(facecolor='#0d1620', labelcolor='white', fontsize=9)
-        ax.grid(True, color='#1e3248', alpha=0.5)
-        plt.colorbar(sc, ax=ax).ax.yaxis.label.set_color('#8ecfe8')
+            sp.set_color('#aaaaaa')
+        ax.legend(facecolor='white', edgecolor='#aaaaaa',
+                  labelcolor='#222222', fontsize=9, framealpha=1.0,
+                  loc='upper right')
+        ax.grid(True, color='#dddddd', alpha=1.0, linewidth=0.7)
+        ax.set_axisbelow(True)
+
+        cb = plt.colorbar(sc, ax=ax)
+        cb.set_label('Cost (USD)', color='#222222', fontsize=9)
+        cb.ax.yaxis.set_tick_params(color='#222222')
+        plt.setp(cb.ax.yaxis.get_ticklabels(), color='#222222')
 
         plt.tight_layout()
-        plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor='#080e14')
+        plt.savefig(save_path, dpi=150, bbox_inches='tight',
+                    facecolor='white', edgecolor='none')
         plt.close()
         print(f"  [OPT] Pareto front saved → {save_path}")
+
+
+# ── Weighted-Sum Baseline (B2) ─────────────────────────────────────────────────
+
+class _WeightedSumProblem(Problem):
+    """Scalarises PipelineOrchestrationProblem into a single weighted objective."""
+
+    def __init__(self, inner: PipelineOrchestrationProblem, cost_weight: float):
+        self.inner = inner
+        self.w     = cost_weight
+        super().__init__(
+            n_var        = inner.n_var,
+            n_obj        = 1,
+            n_ieq_constr = 0,
+            xl           = inner.xl,
+            xu           = inner.xu,
+        )
+
+    def _evaluate(self, X, out, *args, **kwargs):
+        inner_out = {}
+        self.inner._evaluate(X, inner_out)
+        F      = inner_out['F']
+        c_rng  = max(F[:, 0].max() - F[:, 0].min(), 1e-9)
+        l_rng  = max(F[:, 1].max() - F[:, 1].min(), 1e-9)
+        c_norm = (F[:, 0] - F[:, 0].min()) / c_rng
+        l_norm = (F[:, 1] - F[:, 1].min()) / l_rng
+        out['F'] = (self.w * c_norm + (1.0 - self.w) * l_norm).reshape(-1, 1)
+
+
+class WeightedSumBaseline:
+    """
+    Baseline B2: single-objective weighted-sum GA (thesis Section 3.7.2).
+    Scalarises cost and latency into one objective and optimises with pymoo GA.
+    Provides a fair single-objective comparator for NSGA-III.
+    """
+
+    def __init__(self, lpm, cost_weight: float = 0.5,
+                 pop_size: int = 100, n_gen: int = 100):
+        self.lpm         = lpm
+        self.cost_weight = cost_weight
+        self.pop_size    = pop_size
+        self.n_gen       = n_gen
+
+    def run(self, seed: int = 42) -> dict:
+        from pymoo.algorithms.soo.nonconvex.ga import GA  # type: ignore
+
+        inner = PipelineOrchestrationProblem(
+            dag           = self.lpm.dag,
+            vmi_catalogue = self.lpm.vmi_catalogue,
+            task_order    = self.lpm.get_task_order(),
+            all_paths     = self.lpm.get_all_paths(),
+        )
+        problem     = _WeightedSumProblem(inner, self.cost_weight)
+        algorithm   = GA(pop_size=self.pop_size)
+        termination = get_termination("n_gen", self.n_gen)
+
+        result = minimize(problem, algorithm, termination,
+                          seed=seed, verbose=False)
+
+        # Re-evaluate best solution through inner problem to recover true cost/latency
+        best_out = {}
+        inner._evaluate(result.X.reshape(1, -1), best_out)
+        best_f = best_out['F'][0]
+        return {'cost': float(best_f[0]), 'latency': float(best_f[1])}
