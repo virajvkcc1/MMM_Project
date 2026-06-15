@@ -21,6 +21,7 @@ Modern data-processing systems frequently combine:
 - Batch Processing
 - Stream Processing
 - Serving Workloads
+  
 These multi-modal pipelines introduce complex orchestration challenges because deployment decisions affect both performance and operational cost.
 
 This project investigates the following research question:
@@ -57,16 +58,38 @@ Responsibilities:
 - Preserve DAG execution dependencies
 - Support dry-run and deployment modes
 
-## Key Results
- 
-| Metric | Value |
-|---|---|
-| Hypervolume gain over B2 (Weighted-Sum GA) | **~31%** across all workload levels |
-| Statistical significance | **p < 0.001** (Wilcoxon signed-rank test, 30 runs) |
-| Mean Pareto front size | **4.4 – 5.4** non-dominated solutions per run |
-| NSGA-III optimisation overhead | **~2.2 seconds** (independent of workload) |
-| Live KubeVirt deployment | **5/5 VMIs** successfully deployed |
- 
+### Cloud-Native Integration
+
+The generated orchestration plans can be translated into Kubernetes/KubeVirt deployment specifications.
+
+---
+
+## Architecture
+
+```text
+Pipeline Definition (YAML)
+            |
+            v
++-----------------------+
+| Logical Pipeline      |
+| Manager (LPM)         |
++-----------------------+
+            |
+            v
++-----------------------+
+| Optimization Engine   |
+| (NSGA-III)            |
++-----------------------+
+            |
+            v
++-----------------------+
+| KubeVirt Execution    |
+| Adapter               |
++-----------------------+
+            |
+            v
+Deployment Plan
+```
 ---
 
 ## Project Structure
@@ -76,7 +99,6 @@ MMM_Project/
 ├── README.md                   ← this file
 ├── LICENSE                     ← MIT licence
 ├── .gitignore
-├── requirements.txt            ← Python dependencies
 │
 ├── src/                        ← middleware source code
 │   ├── main.py                 ← CLI entry point (--dry-run / --evaluate / --convergence)
@@ -91,29 +113,215 @@ MMM_Project/
 ├── results/                    ← experimental output data
 │   ├── deployment_results.csv  ← per-task deployment event log (30 runs)
 │   ├── evaluation_results.csv  ← baseline comparison results
-│   └── convergence_results.csv ← NSGA-III convergence analysis
+│   
 │
 ├── figures/                    ← generated plots and diagrams
-│   ├── dag_visualization.png   ← Lambda Architecture DAG
-│   ├── pareto/                 ← Pareto front plots per workload level
-│   │   ├── pareto_low.png
-│   │   ├── pareto_medium.png
-│   │   └── pareto_high.png
-│   ├── hypervolume.png         ← HV comparison: NSGA-III vs B2
-│   └── scalability.png         ← cost/latency scalability across workloads
-│
-├── scripts/                    ← helper scripts
-│   ├── run_trials.sh           ← run 30 dry-run evaluation trials
-│   ├── run_trials_live.sh      ← run 30 live cluster trials
-│   └── generate_dashboard.py   ← generate HTML dashboard from CSV
-│
-└── docs/                       ← additional documentation
-    └── api.md                  ← module API reference
+
 ```
  
 ---
+ 
 
-## Licence
+## Installation
+
+### Requirements
+ 
+- Python 3.10+
+- Kubernetes cluster (MicroK8s or standard K8s)
+- KubeVirt installed on cluster
+- kubectl configured to reach the cluste
+
+Clone the repository:
+
+```bash
+https://github.com/virajvkcc1/MMM_Project.git
+
+cd MMM_Project
+```
+
+Create a virtual environment:
+
+```bash
+python -m venv venv
+
+source venv/bin/activate
+```
+## Usage
+ 
+```bash
+cd src
+ 
+# Dry-run (no cluster needed — simulates VMI deployment)
+python3 main.py --dry-run
+ 
+# Live cluster deployment
+python3 main.py
+ 
+# Prefer lower latency (cost_weight=0.2)
+python3 main.py --dry-run --cost-weight 0.2
+ 
+# Full baseline comparison evaluation
+python3 main.py --dry-run --evaluate
+ 
+# NSGA-III convergence analysis
+python3 main.py --convergence
+ 
+# Custom convergence values
+python3 main.py --convergence --gen-values 10,25,50,100,200
+```
+
+
+### CLI Arguments
+ 
+| Argument | Default | Description |
+|---|---|---|
+| `--dry-run` | False | Simulate deployment (no real cluster calls) |
+| `--cost-weight` | 0.5 | Pareto plan preference: 0.0=min latency, 1.0=min cost |
+| `--pop-size` | 100 | NSGA-III population size |
+| `--n-gen` | 100 | NSGA-III generations |
+| `--evaluate` | False | Run full baseline comparison |
+| `--convergence` | False | Run convergence analysis |
+| `--gen-values` | 10,25,50,75,100,150,200 | Generation values for convergence analysis |
+| `--repeats` | 5 | Repeats per generation count |
+
+
+---
+
+## Evaluation Dataset
+ 
+**Sentiment140** (Go et al., 2009) — Stanford Twitter Sentiment Dataset
+ 
+- 1.6 million labelled tweets (positive/negative)
+- 238 MB CSV
+- Used to parameterise batch_retrain task (data_gb = 0.222)
+---
+ 
+## Baselines
+ 
+| Strategy | Description |
+|---|---|
+| **NSGA-III Balanced** | Proposed method · cost_weight = 0.5 |
+| **B1 All-Small** | Static: assigns smallest VMI to every task |
+| **B2 Weighted-Sum GA** | Single-objective scalarisation baseline |
+| **B3 All-Large** | Static: assigns largest VMI to every task |
+ 
+---
+
+
+
+The middleware performs the following steps:
+
+1. Parse pipeline definition
+2. Construct DAG
+3. Execute NSGA-III optimization
+4. Generate Pareto-optimal deployment plans
+5. Export orchestration results
+
+---
+
+## Experimental Evaluation
+
+The implementation was evaluated using a Lambda Architecture-inspired sentiment analysis pipeline under three workload levels:
+
+- Low
+- Medium
+- High
+
+The evaluation compares:
+
+- NSGA-III
+- Weighted-Sum Genetic Algorithm
+- Static Baselines
+
+Metrics include:
+
+- Execution Cost
+- End-to-End Latency
+- Hypervolume (HV)
+- Statistical Significance (Wilcoxon Signed-Rank Test)
+
+### Main Result
+
+NSGA-III achieved approximately:
+
+| Metric | Value |
+|---|---|
+| Hypervolume gain over B2 (Weighted-Sum GA) | **~31%** across all workload levels |
+| Statistical significance | **p < 0.001** (Wilcoxon signed-rank test, 30 runs) |
+| Mean Pareto front size | **4.4 – 5.4** non-dominated solutions per run |
+| NSGA-III optimisation overhead | **~2.2 seconds** (independent of workload) |
+| Live KubeVirt deployment | **5/5 VMIs** successfully deployed |
+ 
+---
+
+compared to the weighted-sum baseline.
+
+---
+
+## Reproducing Thesis Results
+
+To reproduce the evaluation:
+
+1. Configure workload level
+2. Execute optimization runs
+3. Collect generated CSV outputs
+4. Generate Pareto front visualizations
+5. Compute Hypervolume metrics
+
+Results are stored in:
+
+```text
+results/
+```
+
+---
+
+## Limitations
+
+The evaluation primarily relies on an analytical performance model.
+
+The MicroCloud/Kubernetes/KubeVirt environment was used to validate:
+
+- Middleware integration
+- Deployment generation
+- Execution feasibility
+
+The reported cost and latency values should therefore be interpreted as comparative measurements between orchestration strategies rather than exact production-cloud performance estimates.
+
+---
+
+## Thesis Information
+
+**Author:** Viraj Vishwanath Kaththriarachchi
+
+**Degree:** Master of Science
+
+**Institution:** Stockholm University
+
+**Year:** 2026
+
+---
+
+## Citation
+
+If you use this work in academic research, please cite:
+
+```bibtex
+@mastersthesis{Kaththriarachchi2026,
+  author = {Viraj Vishwanath Kaththriarachchi},
+  title = {NSGA-III-Based Multi-Modal Middleware for Dynamic Orchestration of Distributed Data Processing Pipelines in Kubernetes/KubeVirt Environments},
+  school = {Stockholm University},
+  year = {2026}
+}
+```
+
+---
+
+## License
+
+This project is released under the MIT License.
+
+See the LICENSE file for details.
  
 MIT — see [LICENSE](LICENSE) for details.
 
